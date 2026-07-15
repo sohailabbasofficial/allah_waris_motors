@@ -2,7 +2,13 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_icons.dart';
+import '../../../core/theme/app_spacing.dart';
 import '../../../core/utils/currency_formatter.dart';
+import '../../../core/widgets/app_states.dart';
+import '../../../core/widgets/premium_card.dart';
+import '../../../core/widgets/section_header.dart';
 import '../../../routes/app_routes.dart';
 import '../../customer/providers/customer_provider.dart';
 import '../models/customer_ledger.dart';
@@ -83,22 +89,24 @@ class _CustomerLedgerScreenState extends ConsumerState<CustomerLedgerScreen> {
                     final ledger = ledgerAsync!.requireValue;
                     if (ledger != null) _export(ledger);
                   },
-            icon: const Icon(Icons.upload_file_outlined),
+            icon: const Icon(AppIcons.export),
           ),
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppSpacing.pagePadding),
         children: [
           if (kIsWeb)
-            const Padding(
-              padding: EdgeInsets.only(bottom: 12),
-              child: Card(
-                child: ListTile(
-                  leading: Icon(Icons.info_outline),
-                  title: Text(
-                    'SQLite reports require Android, iOS, or desktop.',
-                  ),
+            PremiumCard(
+              margin: const EdgeInsets.only(bottom: AppSpacing.md),
+              child: ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(
+                  AppIcons.info,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                title: const Text(
+                  'SQLite reports require Android, iOS, or desktop.',
                 ),
               ),
             ),
@@ -108,17 +116,17 @@ class _CustomerLedgerScreenState extends ConsumerState<CustomerLedgerScreen> {
                 TextField(
                   decoration: const InputDecoration(
                     labelText: 'Search customer',
-                    prefixIcon: Icon(Icons.search),
+                    prefixIcon: Icon(AppIcons.search),
                   ),
                   onChanged: (value) => setState(() => _search = value),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: AppSpacing.md),
                 DropdownButtonFormField<int>(
                   // ignore: deprecated_member_use
                   value: selectedId,
                   decoration: const InputDecoration(
                     labelText: 'Customer *',
-                    prefixIcon: Icon(Icons.person_outline),
+                    prefixIcon: Icon(AppIcons.customer),
                   ),
                   items: filtered
                       .map(
@@ -135,32 +143,24 @@ class _CustomerLedgerScreenState extends ConsumerState<CustomerLedgerScreen> {
               ],
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.md),
           if (selectedId == null)
             const EmptyReportWidget(
               title: 'Select a customer',
               message: 'Search and choose a customer to view their ledger.',
-              icon: Icons.person_search_outlined,
+              icon: AppIcons.customer,
             )
           else
             ledgerAsync!.when(
               loading: () => const Padding(
-                padding: EdgeInsets.all(32),
-                child: Center(child: CircularProgressIndicator()),
+                padding: EdgeInsets.all(AppSpacing.xxxl),
+                child: AppLoading(label: 'Loading ledger…'),
               ),
-              error: (e, _) => Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  children: [
-                    Text('Failed to load ledger: $e'),
-                    const SizedBox(height: 12),
-                    FilledButton(
-                      onPressed: () =>
-                          ref.invalidate(customerLedgerProvider(selectedId)),
-                      child: const Text('Retry'),
-                    ),
-                  ],
-                ),
+              error: (e, _) => AppErrorState(
+                title: 'Could not load ledger',
+                message: e.toString(),
+                onRetry: () =>
+                    ref.invalidate(customerLedgerProvider(selectedId)),
               ),
               data: (ledger) {
                 if (ledger == null) {
@@ -183,63 +183,73 @@ class _CustomerLedgerScreenState extends ConsumerState<CustomerLedgerScreen> {
                           AppRoutes.customerDetail,
                           arguments: c.id,
                         ),
-                        icon: const Icon(Icons.open_in_new),
+                        icon: const Icon(AppIcons.customer),
                       ),
                     ),
-                    const SizedBox(height: 12),
-                    Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Customer details',
-                              style: Theme.of(context).textTheme.titleMedium,
-                            ),
-                            const SizedBox(height: 8),
-                            _DetailRow(label: 'Name', value: c.name),
-                            _DetailRow(label: 'Phone', value: c.phone),
-                            _DetailRow(
-                              label: 'CNIC',
-                              value: c.cnic?.trim().isNotEmpty == true
-                                  ? c.cnic!
-                                  : '-',
-                            ),
-                            _DetailRow(
-                              label: 'Address',
-                              value: c.address?.trim().isNotEmpty == true
-                                  ? c.address!
-                                  : '-',
-                            ),
-                          ],
-                        ),
+                    const SizedBox(height: AppSpacing.md),
+                    PremiumCard(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Customer details',
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(fontWeight: FontWeight.w700),
+                          ),
+                          const SizedBox(height: AppSpacing.sm),
+                          _DetailRow(
+                            icon: AppIcons.customer,
+                            label: 'Name',
+                            value: c.name,
+                          ),
+                          _DetailRow(
+                            icon: AppIcons.phone,
+                            label: 'Phone',
+                            value: c.phone,
+                          ),
+                          _DetailRow(
+                            icon: AppIcons.info,
+                            label: 'CNIC',
+                            value: c.cnic?.trim().isNotEmpty == true
+                                ? c.cnic!
+                                : '-',
+                          ),
+                          _DetailRow(
+                            icon: AppIcons.address,
+                            label: 'Address',
+                            value: c.address?.trim().isNotEmpty == true
+                                ? c.address!
+                                : '-',
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: AppSpacing.md),
                     ReportSummaryCard(
                       label: 'Total Amount',
                       value: CurrencyFormatter.format(ledger.totalAmount),
-                      icon: Icons.account_balance_wallet_outlined,
+                      icon: AppIcons.money,
+                      color: AppColors.customers,
                     ),
+                    const SizedBox(height: AppSpacing.sm),
                     ReportSummaryCard(
                       label: 'Total Paid',
                       value: CurrencyFormatter.format(ledger.totalPaid),
-                      icon: Icons.payments_outlined,
+                      icon: AppIcons.payments,
+                      color: AppColors.received,
                     ),
+                    const SizedBox(height: AppSpacing.sm),
                     ReportSummaryCard(
                       label: 'Remaining Balance',
                       value:
                           CurrencyFormatter.format(ledger.remainingBalance),
-                      icon: Icons.pending_actions_outlined,
-                      color: Theme.of(context).colorScheme.error,
+                      icon: AppIcons.remaining,
+                      color: AppColors.remaining,
                     ),
-                    const SizedBox(height: 12),
-                    Text(
-                      'Ledger (oldest to newest)',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: AppSpacing.md),
+                    const SectionHeader(title: 'Ledger (oldest to newest)'),
                     if (!ledger.hasData)
                       const EmptyReportWidget(
                         title: 'No ledger entries',
@@ -261,24 +271,32 @@ class _CustomerLedgerScreenState extends ConsumerState<CustomerLedgerScreen> {
 }
 
 class _DetailRow extends StatelessWidget {
-  const _DetailRow({required this.label, required this.value});
+  const _DetailRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
 
+  final IconData icon;
   final String label;
   final String value;
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Icon(icon, size: 18, color: scheme.onSurfaceVariant),
+          const SizedBox(width: AppSpacing.sm),
           SizedBox(
-            width: 88,
+            width: 78,
             child: Text(
               label,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    color: scheme.onSurfaceVariant,
                   ),
             ),
           ),

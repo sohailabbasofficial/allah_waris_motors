@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/theme/app_icons.dart';
+import '../../../core/theme/app_spacing.dart';
 import '../../../core/utils/currency_formatter.dart';
+import '../../../core/widgets/premium_card.dart';
 import '../models/report_transaction_row.dart';
 
 class ReportTransactionTile extends StatelessWidget {
@@ -13,14 +16,31 @@ class ReportTransactionTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
 
-    return Card(
+    return PremiumCard(
+      margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+      padding: EdgeInsets.zero,
       child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: scheme.secondaryContainer,
-          foregroundColor: scheme.onSecondaryContainer,
-          child: const Icon(Icons.receipt_long_outlined),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.lg,
+          vertical: AppSpacing.sm,
         ),
-        title: Text(transaction.customerName),
+        leading: Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: scheme.primary.withValues(alpha: 0.10),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Icon(
+            AppIcons.transactions,
+            color: scheme.primary,
+            size: AppSpacing.iconSize,
+          ),
+        ),
+        title: Text(
+          transaction.customerName,
+          style: const TextStyle(fontWeight: FontWeight.w600),
+        ),
         subtitle: Text(
           '${DateFormat('dd MMM yyyy').format(transaction.date)} · '
           '${transaction.description}',
@@ -35,7 +55,9 @@ class ReportTransactionTile extends StatelessWidget {
             ),
             Text(
               'Paid ${CurrencyFormatter.format(transaction.receivedAmount)}',
-              style: Theme.of(context).textTheme.bodySmall,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
             ),
           ],
         ),

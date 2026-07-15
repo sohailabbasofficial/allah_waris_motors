@@ -2,8 +2,16 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/auth/authorized_google_account.dart';
+import '../../../core/theme/app_icons.dart';
+import '../../../core/theme/app_spacing.dart';
+import '../../../core/widgets/app_states.dart';
+import '../../../core/widgets/premium_card.dart';
+import '../../../features/auth/providers/auth_providers.dart';
+import '../../../features/auth/providers/google_session_provider.dart';
 import '../../../routes/app_routes.dart';
 import '../providers/backup_provider.dart';
+import '../services/google_drive_service.dart';
 import '../widgets/auto_backup_switch.dart';
 import '../widgets/backup_status_card.dart';
 import '../widgets/google_account_card.dart';
@@ -27,12 +35,56 @@ class BackupScreen extends ConsumerWidget {
         .setAutoBackupTime(picked.hour, picked.minute);
   }
 
+  Future<void> _showAccessDenied(BuildContext context) {
+    return showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Access Denied'),
+        content: Text(AuthorizedGoogleAccount.accessDeniedMessage),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _backup(BuildContext context, WidgetRef ref) async {
     try {
       await ref.read(backupProvider.notifier).backupNow();
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Backup uploaded to Google Drive')),
+      );
+    } on GoogleAuthException catch (e) {
+      if (!context.mounted) return;
+      if (e.isAccessDenied) {
+        await _showAccessDenied(context);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.message)),
+        );
+      }
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$e')),
+      );
+    }
+  }
+
+  Future<void> _logout(BuildContext context, WidgetRef ref) async {
+    try {
+      await ref.read(backupProvider.notifier).disconnectGoogle();
+      await ref.read(biometricEnabledProvider.notifier).setEnabled(false);
+      ref.invalidate(authorizedGoogleSessionProvider);
+      if (!context.mounted) return;
+      Navigator.of(context).pushNamedAndRemoveUntil(
+        AppRoutes.googleSignIn,
+        (route) => false,
+        arguments: const {'asGate': true},
       );
     } catch (e) {
       if (!context.mounted) return;
@@ -54,37 +106,31 @@ class BackupScreen extends ConsumerWidget {
             tooltip: 'Restore',
             onPressed: () =>
                 Navigator.of(context).pushNamed(AppRoutes.restoreBackup),
-            icon: const Icon(Icons.restore_outlined),
+            icon: const Icon(AppIcons.restore),
           ),
         ],
       ),
       body: backupAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text('$e'),
-                const SizedBox(height: 12),
-                FilledButton(
-                  onPressed: () => ref.read(backupProvider.notifier).refresh(),
-                  child: const Text('Retry'),
-                ),
-              ],
-            ),
-          ),
+        loading: () => const AppLoading(label: 'Loading backup status…'),
+        error: (e, _) => AppErrorState(
+          title: 'Could not load backup',
+          message: e.toString(),
+          onRetry: () => ref.read(backupProvider.notifier).refresh(),
         ),
         data: (state) {
           return ListView(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(AppSpacing.pagePadding),
             children: [
               if (kIsWeb)
-                const Card(
+                PremiumCard(
+                  margin: const EdgeInsets.only(bottom: AppSpacing.md),
                   child: ListTile(
-                    leading: Icon(Icons.info_outline),
-                    title: Text(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(
+                      AppIcons.info,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                    title: const Text(
                       'Backup requires Android, iOS, or desktop with Google Sign-In configured.',
                     ),
                   ),
@@ -95,30 +141,12 @@ class BackupScreen extends ConsumerWidget {
                     ? null
                     : () => Navigator.of(context)
                         .pushNamed(AppRoutes.googleSignIn),
-                onDisconnect: state.isBusy
-                    ? null
-                    : () async {
-                        try {
-                          await ref
-                              .read(backupProvider.notifier)
-                              .disconnectGoogle();
-                          if (!context.mounted) return;
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Google account disconnected'),
-                            ),
-                          );
-                        } catch (e) {
-                          if (!context.mounted) return;
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('$e')),
-                          );
-                        }
-                      },
+                onDisconnect:
+                    state.isBusy ? null : () => _logout(context, ref),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.md),
               BackupStatusCard(state: state),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.md),
               AutoBackupSwitch(
                 enabled: state.autoBackupEnabled,
                 timeLabel: state.autoBackupTimeLabel,
@@ -128,7 +156,7 @@ class BackupScreen extends ConsumerWidget {
                     .setAutoBackupEnabled(value),
                 onPickTime: () => _pickTime(context, ref),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: AppSpacing.xl),
               FilledButton.icon(
                 onPressed: state.isBusy || !state.isSignedIn || kIsWeb
                     ? null
@@ -139,28 +167,45 @@ class BackupScreen extends ConsumerWidget {
                         height: 18,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Icon(Icons.cloud_upload_outlined),
+                    : const Icon(AppIcons.backup),
                 label: Text(state.isBusy ? 'Working…' : 'Backup Now'),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.md),
               OutlinedButton.icon(
                 onPressed: state.isBusy
                     ? null
                     : () => Navigator.of(context)
                         .pushNamed(AppRoutes.restoreBackup),
-                icon: const Icon(Icons.cloud_download_outlined),
+                icon: const Icon(AppIcons.restore),
                 label: const Text('Restore Backup'),
               ),
               if (state.errorMessage != null) ...[
-                const SizedBox(height: 16),
-                Text(
-                  state.errorMessage!,
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.error,
+                const SizedBox(height: AppSpacing.lg),
+                PremiumCard(
+                  color: Theme.of(context)
+                      .colorScheme
+                      .errorContainer
+                      .withValues(alpha: 0.45),
+                  child: Row(
+                    children: [
+                      Icon(
+                        AppIcons.error,
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                      const SizedBox(width: AppSpacing.md),
+                      Expanded(
+                        child: Text(
+                          state.errorMessage!,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.error,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
-              const SizedBox(height: 24),
+              const SizedBox(height: AppSpacing.xxl),
               Text(
                 'Backups are stored in Google Drive under '
                 '"Car Rental Manager Backup". Previous database backups are replaced.',

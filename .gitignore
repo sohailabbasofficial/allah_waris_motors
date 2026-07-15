@@ -1,0 +1,12 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Nested Flutter app — ignore build caches only
+car_rental_manager/.gradle-home/
+car_rental_manager/.gradle/
+car_rental_manager/**/build/
+car_rental_manager/.dart_tool/
+car_rental_manager/**/*.hprof

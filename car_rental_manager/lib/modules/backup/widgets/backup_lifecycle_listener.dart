@@ -3,7 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/backup_provider.dart';
 
-/// Triggers automatic daily backup checks when the app resumes.
+/// Triggers automatic daily backup checks when the app resumes,
+/// and Drive sync shortly after local data changes.
 class BackupLifecycleListener extends ConsumerStatefulWidget {
   const BackupLifecycleListener({super.key, required this.child});
 
@@ -37,5 +38,11 @@ class _BackupLifecycleListenerState
   }
 
   @override
-  Widget build(BuildContext context) => widget.child;
+  Widget build(BuildContext context) {
+    ref.listen<int>(dataChangeBusProvider, (previous, next) {
+      if (previous == next) return;
+      ref.read(backupProvider.notifier).scheduleSyncAfterLocalChange();
+    });
+    return widget.child;
+  }
 }

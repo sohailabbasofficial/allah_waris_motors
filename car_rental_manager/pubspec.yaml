@@ -1,6 +1,6 @@
 name: car_rental_manager
 description: Allah Waris Motors - local SQLite app with Riverpod and Clean Architecture.
-publish_to: 'none'
+publish_to: "none"
 version: 1.0.0+1
 
 environment:
@@ -8,6 +8,8 @@ environment:
 
 dependencies:
   flutter:
+    sdk: flutter
+  flutter_localizations:
     sdk: flutter
   flutter_riverpod: ^2.6.1
   sqflite: ^2.4.2
@@ -31,6 +33,30 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.14.4
 
 flutter:
+  generate: true
   uses-material-design: true
+  assets:
+    - assets/images/logo.png
+    - assets/images/splash_bg.png
+    - assets/images/app_icon.png
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: assets/images/app_icon.png
+  adaptive_icon_background: "#F8F9FA"
+  adaptive_icon_foreground: assets/images/app_icon.png
+  adaptive_icon_foreground_inset: 16
+  remove_alpha_ios: true
+  web:
+    generate: true
+    image_path: assets/images/app_icon.png
+    background_color: "#F8F9FA"
+    theme_color: "#003B95"
+  windows:
+    generate: true
+    image_path: assets/images/app_icon.png
+    icon_size: 256

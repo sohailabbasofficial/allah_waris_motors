@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/theme/app_icons.dart';
+import '../../../core/theme/app_spacing.dart';
+import '../../../core/widgets/premium_card.dart';
 import '../models/backup_file_info.dart';
 import '../utils/backup_formatters.dart';
 
@@ -17,23 +20,37 @@ class BackupHistoryTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      color: selected
-          ? Theme.of(context).colorScheme.secondaryContainer
-          : null,
+    final scheme = Theme.of(context).colorScheme;
+
+    return PremiumCard(
+      margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+      padding: EdgeInsets.zero,
+      color: selected ? scheme.secondaryContainer : null,
+      onTap: onTap,
       child: ListTile(
-        leading: const Icon(Icons.insert_drive_file_outlined),
-        title: Text(file.name),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.lg,
+          vertical: AppSpacing.sm,
+        ),
+        leading: Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: scheme.primary.withValues(alpha: 0.10),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Icon(AppIcons.backup, color: scheme.primary),
+        ),
+        title: Text(
+          file.name,
+          style: const TextStyle(fontWeight: FontWeight.w600),
+        ),
         subtitle: Text(
           '${BackupFormatters.formatDateTime(file.modifiedTime)} · ${file.sizeLabel}',
         ),
         trailing: selected
-            ? Icon(
-                Icons.check_circle,
-                color: Theme.of(context).colorScheme.primary,
-              )
-            : const Icon(Icons.chevron_right),
-        onTap: onTap,
+            ? Icon(AppIcons.received, color: scheme.primary)
+            : Icon(AppIcons.chevron, color: scheme.onSurfaceVariant),
       ),
     );
   }

@@ -3,7 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_icons.dart';
+import '../../../core/theme/app_spacing.dart';
 import '../../../core/utils/currency_formatter.dart';
+import '../../../core/widgets/app_states.dart';
+import '../../../core/widgets/premium_card.dart';
+import '../../../core/widgets/section_header.dart';
 import '../models/daily_report.dart';
 import '../providers/reports_provider.dart';
 import '../widgets/empty_report_widget.dart';
@@ -59,28 +65,16 @@ class DailyReportScreen extends ConsumerWidget {
             onPressed: reportAsync.asData == null
                 ? null
                 : () => _export(context, ref, reportAsync.requireValue),
-            icon: const Icon(Icons.upload_file_outlined),
+            icon: const Icon(AppIcons.export),
           ),
         ],
       ),
       body: reportAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text('Failed to load report: $e'),
-                const SizedBox(height: 12),
-                FilledButton(
-                  onPressed: () =>
-                      ref.invalidate(dailyReportProvider(selected)),
-                  child: const Text('Retry'),
-                ),
-              ],
-            ),
-          ),
+        loading: () => const AppLoading(label: 'Loading daily report…'),
+        error: (e, _) => AppErrorState(
+          title: 'Could not load report',
+          message: e.toString(),
+          onRetry: () => ref.invalidate(dailyReportProvider(selected)),
         ),
         data: (report) {
           return RefreshIndicator(
@@ -89,24 +83,34 @@ class DailyReportScreen extends ConsumerWidget {
               await ref.read(dailyReportProvider(selected).future);
             },
             child: ListView(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(AppSpacing.pagePadding),
               children: [
                 if (kIsWeb)
-                  const Padding(
-                    padding: EdgeInsets.only(bottom: 12),
-                    child: Card(
-                      child: ListTile(
-                        leading: Icon(Icons.info_outline),
-                        title: Text(
-                          'SQLite reports require Android, iOS, or desktop.',
-                        ),
+                  PremiumCard(
+                    margin: const EdgeInsets.only(bottom: AppSpacing.md),
+                    child: ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(
+                        AppIcons.info,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                      title: const Text(
+                        'SQLite reports require Android, iOS, or desktop.',
                       ),
                     ),
                   ),
                 ReportFilterWidget(
                   child: ListTile(
                     contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.calendar_today_outlined),
+                    leading: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(AppIcons.calendar, color: AppColors.primary),
+                    ),
                     title: const Text('Report date'),
                     subtitle: Text(dateLabel),
                     trailing: FilledButton.tonal(
@@ -115,12 +119,12 @@ class DailyReportScreen extends ConsumerWidget {
                     ),
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: AppSpacing.md),
                 ReportHeader(
                   title: 'Daily Report',
                   subtitle: dateLabel,
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: AppSpacing.md),
                 if (!report.hasData)
                   const EmptyReportWidget(
                     title: 'No activity for this date',
@@ -138,51 +142,50 @@ class DailyReportScreen extends ConsumerWidget {
                         ReportSummaryCard(
                           label: 'Total Transactions',
                           value: '${report.totalTransactions}',
-                          icon: Icons.receipt_long_outlined,
+                          icon: AppIcons.transactions,
                         ),
                         ReportSummaryCard(
                           label: 'Total Amount',
                           value: CurrencyFormatter.format(report.totalAmount),
-                          icon: Icons.account_balance_wallet_outlined,
+                          icon: AppIcons.money,
+                          color: AppColors.secondary,
                         ),
                         ReportSummaryCard(
                           label: 'Payments Received',
                           value: CurrencyFormatter.format(
                             report.totalPaymentsReceived,
                           ),
-                          icon: Icons.payments_outlined,
+                          icon: AppIcons.payments,
+                          color: AppColors.success,
                         ),
                         ReportSummaryCard(
                           label: 'Remaining Balance',
                           value: CurrencyFormatter.format(
                             report.remainingBalance,
                           ),
-                          icon: Icons.pending_actions_outlined,
-                          color: Theme.of(context).colorScheme.error,
+                          icon: AppIcons.remaining,
+                          color: AppColors.error,
                         ),
                         ReportSummaryCard(
                           label: 'Customers Served',
                           value: '${report.customersServed}',
-                          icon: Icons.groups_outlined,
+                          icon: AppIcons.customers,
+                          color: AppColors.accent,
                         ),
                       ];
                       return GridView.count(
                         shrinkWrap: true,
                         physics: const NeverScrollableScrollPhysics(),
                         crossAxisCount: columns,
-                        mainAxisSpacing: 8,
-                        crossAxisSpacing: 8,
+                        mainAxisSpacing: AppSpacing.sm,
+                        crossAxisSpacing: AppSpacing.sm,
                         childAspectRatio: 2.6,
                         children: cards,
                       );
                     },
                   ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Transactions',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: AppSpacing.lg),
+                  const SectionHeader(title: 'Transactions'),
                   if (report.transactions.isEmpty)
                     const EmptyReportWidget(
                       title: 'No transactions',

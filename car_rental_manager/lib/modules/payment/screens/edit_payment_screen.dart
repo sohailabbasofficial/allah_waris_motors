@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/theme/app_icons.dart';
+import '../../../core/theme/app_spacing.dart';
+import '../../../core/widgets/app_states.dart';
 import '../../customer/providers/customer_provider.dart';
+import '../../transaction/models/transaction_model.dart';
 import '../models/payment_model.dart';
 import '../providers/payment_provider.dart';
 import '../repository/payment_repository.dart';
@@ -22,6 +26,7 @@ class _EditPaymentScreenState extends ConsumerState<EditPaymentScreen> {
   final _notesController = TextEditingController();
 
   int? _customerId;
+  int? _transactionId;
   DateTime? _date;
   bool _initialized = false;
   bool _saving = false;
@@ -36,6 +41,7 @@ class _EditPaymentScreenState extends ConsumerState<EditPaymentScreen> {
   void _fill(PaymentModel payment) {
     if (_initialized) return;
     _customerId = payment.customerId;
+    _transactionId = payment.transactionId;
     _date = payment.paymentDate;
     _amountController.text = payment.paymentAmount.toStringAsFixed(
       payment.paymentAmount % 1 == 0 ? 0 : 2,
@@ -96,13 +102,13 @@ class _EditPaymentScreenState extends ConsumerState<EditPaymentScreen> {
       next.whenData(_fill);
     });
 
-    final available = _customerId == null
+    final available = _transactionId == null
         ? 0.0
         : ref
                 .watch(
                   editableAvailableBalanceProvider(
                     (
-                      customerId: _customerId!,
+                      transactionId: _transactionId!,
                       excludePaymentId: widget.paymentId,
                     ),
                   ),
@@ -113,18 +119,38 @@ class _EditPaymentScreenState extends ConsumerState<EditPaymentScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Edit Payment')),
       body: paymentAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text(e.toString())),
+        loading: () => const AppLoading(label: 'Loading payment…'),
+        error: (e, _) => AppErrorState(
+          title: 'Could not load payment',
+          message: e.toString(),
+          onRetry: () =>
+              ref.invalidate(paymentDetailProvider(widget.paymentId)),
+        ),
         data: (payment) {
           _fill(payment);
+          final tx = TransactionModel(
+            id: payment.transactionId,
+            customerId: payment.customerId,
+            customerName: payment.customerName,
+            date: payment.paymentDate,
+            description: 'Linked transaction #${payment.transactionId}',
+            totalAmount: 0,
+            receivedAmount: 0,
+            remainingAmount: available,
+            createdAt: payment.createdAt,
+            updatedAt: payment.updatedAt ?? payment.createdAt,
+          );
           return ListView(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(AppSpacing.xl),
             children: [
               PaymentForm(
                 formKey: _formKey,
                 customers: customers,
                 selectedCustomerId: _customerId,
                 onCustomerChanged: (_) {},
+                transactions: [tx],
+                selectedTransactionId: _transactionId,
+                onTransactionChanged: (_) {},
                 date: _date,
                 onPickDate: _pickDate,
                 amountController: _amountController,
@@ -132,8 +158,9 @@ class _EditPaymentScreenState extends ConsumerState<EditPaymentScreen> {
                 availableBalance: available,
                 enabled: !_saving,
                 lockCustomer: true,
+                lockTransaction: true,
               ),
-              const SizedBox(height: 28),
+              const SizedBox(height: AppSpacing.xxxl),
               Row(
                 children: [
                   Expanded(
@@ -143,7 +170,7 @@ class _EditPaymentScreenState extends ConsumerState<EditPaymentScreen> {
                       child: const Text('Cancel'),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: AppSpacing.md),
                   Expanded(
                     child: FilledButton.icon(
                       onPressed: _saving ? null : _save,
@@ -153,7 +180,7 @@ class _EditPaymentScreenState extends ConsumerState<EditPaymentScreen> {
                               height: 18,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
-                          : const Icon(Icons.save_outlined),
+                          : const Icon(AppIcons.save),
                       label: Text(_saving ? 'Saving...' : 'Save'),
                     ),
                   ),

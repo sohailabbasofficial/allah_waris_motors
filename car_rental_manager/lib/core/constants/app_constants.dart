@@ -5,25 +5,26 @@ class AppConstants {
   static const String appName = 'Allah Waris Motors';
   static const String databaseName = 'allah_waris_motors.db';
 
-  /// v5 migrates payments to the Payment Management schema.
-  static const int databaseVersion = 5;
-
+  /// v6: relational schema (payments → transactions → customers) + settings.
+  static const int databaseVersion = 6;
   static const Duration splashDuration = Duration(seconds: 2);
   static const int pinLength = 4;
   static const int maxPinAttempts = 5;
   static const Duration pinLockoutDuration = Duration(seconds: 30);
   static const String pinHashPepper = 'allah_waris_motors_pin_v1';
-
   static const String keyPinHash = 'security_pin_hash';
   static const String keyBiometricEnabled = 'security_biometric_enabled';
   static const String keyThemeMode = 'appearance_theme_mode';
+  static const String keyLocale = 'appearance_locale';
   static const String keyFailedPinAttempts = 'security_failed_pin_attempts';
   static const String keyPinLockUntil = 'security_pin_lock_until_ms';
-
-  /// Backup & Restore prefs.
   static const String keyGoogleAccountEmail = 'backup_google_account_email';
   static const String keyGoogleAccountDisplayName =
       'backup_google_account_display_name';
+
+  /// True after a successful authorized Google Sign-In (cleared on logout).
+  static const String keyAuthorizedGoogleSignedIn =
+      'security_authorized_google_signed_in';
   static const String keyAutoBackupEnabled = 'backup_auto_enabled';
   static const String keyAutoBackupHour = 'backup_auto_hour';
   static const String keyAutoBackupMinute = 'backup_auto_minute';
@@ -32,17 +33,23 @@ class AppConstants {
   static const String keyLastBackupSize = 'backup_last_size_bytes';
   static const String keyLastBackupFingerprint = 'backup_last_fingerprint';
   static const String keyLastAutoBackupDay = 'backup_last_auto_day';
-
-  /// Drive folder used for cloud backups.
-  static const String driveBackupFolderName = 'Car Rental Manager Backup';
+  /// Epoch ms of last successful restore — used to pause auto-backup briefly.
+  static const String keyLastRestoreAt = 'backup_last_restore_at_ms';
+  static const String driveBackupFolderName = 'Car Rental Manager Backups';
   static const String driveBackupDbFileName = 'allah_waris_motors_backup.db';
+  static const String driveBackupDbPrefix = 'allah_waris_motors_backup';
   static const String driveBackupSettingsFileName =
       'allah_waris_motors_settings.json';
 
-  /// Optional OAuth client IDs (set after Google Cloud Console setup).
-  /// Leave null to use platform defaults when configured via google-services.
-  static const String? googleSignInClientId = null;
-  static const String? googleSignInServerClientId = null;
+  /// Only this Google account may use Backup, Restore, Sync, and app data.
+  static const String authorizedGoogleEmail = 'allahwarismotors@gmail.com';
 
-  static const String currencySymbol = 'Rs.';
+  static const String googleAccessDeniedMessage =
+      "Access Denied. This application is authorized only for the workshop owner's Google account.";
+
+  static const String? googleSignInClientId = null; // optional
+  static const String googleSignInServerClientId =
+      '1025925433675-r4hgi9kdfpvhiraghvd2j9svdskt6pj5.apps.googleusercontent.com';
+  static const String developedBy = 'Developed by Qazi Sohail Abbas';
+  static const String currencySymbol = 'Rs';
 }

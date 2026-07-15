@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_icons.dart';
+import '../../../core/theme/app_spacing.dart';
 import '../../../core/utils/currency_formatter.dart';
+import '../../../core/widgets/app_states.dart';
+import '../../../core/widgets/premium_card.dart';
+import '../../../core/widgets/section_header.dart';
 import '../../../routes/app_routes.dart';
 import '../providers/customer_provider.dart';
 import '../utils/customer_formatters.dart';
@@ -50,6 +56,7 @@ class CustomerDetailScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final asyncCustomer = ref.watch(customerDetailProvider(customerId));
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
       appBar: AppBar(
@@ -58,7 +65,7 @@ class CustomerDetailScreen extends ConsumerWidget {
           asyncCustomer.maybeWhen(
             data: (customer) => IconButton(
               tooltip: 'Edit',
-              icon: const Icon(Icons.edit_outlined),
+              icon: const Icon(AppIcons.edit),
               onPressed: () => _edit(context),
             ),
             orElse: () => const SizedBox.shrink(),
@@ -66,7 +73,7 @@ class CustomerDetailScreen extends ConsumerWidget {
           asyncCustomer.maybeWhen(
             data: (customer) => IconButton(
               tooltip: 'Delete',
-              icon: const Icon(Icons.delete_outline),
+              icon: const Icon(AppIcons.delete),
               onPressed: () => _delete(context, ref, customer.name),
             ),
             orElse: () => const SizedBox.shrink(),
@@ -74,114 +81,151 @@ class CustomerDetailScreen extends ConsumerWidget {
         ],
       ),
       body: asyncCustomer.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => Center(child: Text(error.toString())),
+        loading: () => const AppLoading(label: 'Loading customer…'),
+        error: (error, _) => AppErrorState(
+          title: 'Could not load customer',
+          message: error.toString(),
+          onRetry: () => ref.invalidate(customerDetailProvider(customerId)),
+        ),
         data: (customer) {
-          final colorScheme = Theme.of(context).colorScheme;
+          final initial = customer.name.isNotEmpty
+              ? customer.name[0].toUpperCase()
+              : '?';
+
           return ListView(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(AppSpacing.xl),
             children: [
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    children: [
-                      CircleAvatar(
-                        radius: 36,
-                        backgroundColor: colorScheme.primaryContainer,
-                        foregroundColor: colorScheme.onPrimaryContainer,
-                        child: Text(
-                          customer.name.isNotEmpty
-                              ? customer.name[0].toUpperCase()
-                              : '?',
-                          style: const TextStyle(
-                            fontSize: 28,
-                            fontWeight: FontWeight.bold,
-                          ),
+              PremiumCard(
+                padding: const EdgeInsets.all(AppSpacing.xxl),
+                child: Column(
+                  children: [
+                    Container(
+                      width: 80,
+                      height: 80,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            colorScheme.primary.withValues(alpha: 0.22),
+                            colorScheme.primary.withValues(alpha: 0.08),
+                          ],
+                        ),
+                        shape: BoxShape.circle,
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        initial,
+                        style: TextStyle(
+                          fontSize: 32,
+                          fontWeight: FontWeight.w700,
+                          color: colorScheme.primary,
                         ),
                       ),
-                      const SizedBox(height: 12),
-                      Text(
-                        customer.name,
-                        style:
-                            Theme.of(context).textTheme.headlineSmall?.copyWith(
-                                  fontWeight: FontWeight.w700,
-                                ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        customer.phone,
-                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
-                            ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    children: [
-                      CustomerInfoTile(
-                        icon: Icons.badge_outlined,
-                        label: 'CNIC',
-                        value: CustomerFormatters.displayOrDash(customer.cnic),
-                      ),
-                      const Divider(),
-                      CustomerInfoTile(
-                        icon: Icons.location_on_outlined,
-                        label: 'Address',
-                        value:
-                            CustomerFormatters.displayOrDash(customer.address),
-                      ),
-                      const Divider(),
-                      CustomerInfoTile(
-                        icon: Icons.calendar_month_outlined,
-                        label: 'Created Date',
-                        value: CustomerFormatters.formatDate(customer.createdAt),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    children: [
-                      CustomerInfoTile(
-                        icon: Icons.account_balance_wallet_outlined,
-                        label: 'Total Udhaar',
-                        value: CurrencyFormatter.format(customer.totalUdhaar),
-                        valueColor: const Color(0xFFE65100),
-                      ),
-                      const Divider(),
-                      CustomerInfoTile(
-                        icon: Icons.check_circle_outline,
-                        label: 'Total Received',
-                        value:
-                            CurrencyFormatter.format(customer.totalReceived),
-                        valueColor: const Color(0xFF2E7D32),
-                      ),
-                      const Divider(),
-                      CustomerInfoTile(
-                        icon: Icons.trending_down,
-                        label: 'Remaining Balance',
-                        value: CurrencyFormatter.format(
-                          customer.remainingBalance,
+                    ),
+                    const SizedBox(height: AppSpacing.lg),
+                    Text(
+                      customer.name,
+                      style:
+                          Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: -0.3,
+                              ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          AppIcons.phone,
+                          size: 16,
+                          color: colorScheme.onSurfaceVariant,
                         ),
-                        valueColor: colorScheme.error,
-                      ),
-                    ],
-                  ),
+                        const SizedBox(width: AppSpacing.xs),
+                        Text(
+                          customer.phone,
+                          style:
+                              Theme.of(context).textTheme.bodyLarge?.copyWith(
+                                    color: colorScheme.onSurfaceVariant,
+                                  ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: AppSpacing.xl),
+              const SectionHeader(title: 'Profile'),
+              PremiumCard(
+                child: Column(
+                  children: [
+                    CustomerInfoTile(
+                      icon: AppIcons.security,
+                      label: 'CNIC',
+                      value: CustomerFormatters.displayOrDash(customer.cnic),
+                    ),
+                    Divider(
+                      height: AppSpacing.lg,
+                      color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+                    ),
+                    CustomerInfoTile(
+                      icon: AppIcons.address,
+                      label: 'Address',
+                      value:
+                          CustomerFormatters.displayOrDash(customer.address),
+                    ),
+                    Divider(
+                      height: AppSpacing.lg,
+                      color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+                    ),
+                    CustomerInfoTile(
+                      icon: AppIcons.calendar,
+                      label: 'Created Date',
+                      value:
+                          CustomerFormatters.formatDate(customer.createdAt),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: AppSpacing.xl),
+              const SectionHeader(title: 'Balances'),
+              PremiumCard(
+                child: Column(
+                  children: [
+                    CustomerInfoTile(
+                      icon: AppIcons.money,
+                      label: 'Total Amount',
+                      value: CurrencyFormatter.format(customer.totalUdhaar),
+                      valueColor: AppColors.udhaar,
+                    ),
+                    Divider(
+                      height: AppSpacing.lg,
+                      color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+                    ),
+                    CustomerInfoTile(
+                      icon: AppIcons.received,
+                      label: 'Total Received',
+                      value:
+                          CurrencyFormatter.format(customer.totalReceived),
+                      valueColor: AppColors.received,
+                    ),
+                    Divider(
+                      height: AppSpacing.lg,
+                      color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+                    ),
+                    CustomerInfoTile(
+                      icon: AppIcons.remaining,
+                      label: 'Remaining Balance',
+                      value: CurrencyFormatter.format(
+                        customer.remainingBalance,
+                      ),
+                      valueColor: AppColors.remaining,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: AppSpacing.xxl),
               Row(
                 children: [
                   Expanded(
@@ -190,11 +234,11 @@ class CustomerDetailScreen extends ConsumerWidget {
                         AppRoutes.customerLedger,
                         arguments: customer.id,
                       ),
-                      icon: const Icon(Icons.menu_book_outlined),
+                      icon: const Icon(AppIcons.ledger),
                       label: const Text('Ledger'),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: AppSpacing.md),
                   Expanded(
                     child: OutlinedButton.icon(
                       onPressed: () => Navigator.of(context).pushNamed(
@@ -204,45 +248,42 @@ class CustomerDetailScreen extends ConsumerWidget {
                           'customerName': customer.name,
                         },
                       ),
-                      icon: const Icon(Icons.history),
+                      icon: const Icon(AppIcons.payments),
                       label: const Text('Payments'),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: FilledButton.icon(
-                      onPressed: () => Navigator.of(context).pushNamed(
-                        AppRoutes.addPayment,
-                        arguments: customer.id,
-                      ),
-                      icon: const Icon(Icons.payments_outlined),
-                      label: const Text('Add Payment'),
-                    ),
+              const SizedBox(height: AppSpacing.md),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: () => Navigator.of(context).pushNamed(
+                    AppRoutes.addPayment,
+                    arguments: customer.id,
                   ),
-                ],
+                  icon: const Icon(AppIcons.payments),
+                  label: const Text('Add Payment'),
+                ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.md),
               Row(
                 children: [
                   Expanded(
                     child: OutlinedButton.icon(
                       onPressed: () => _edit(context),
-                      icon: const Icon(Icons.edit_outlined),
+                      icon: const Icon(AppIcons.edit),
                       label: const Text('Edit'),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: AppSpacing.md),
                   Expanded(
                     child: FilledButton.icon(
                       style: FilledButton.styleFrom(
                         backgroundColor: colorScheme.error,
                       ),
                       onPressed: () => _delete(context, ref, customer.name),
-                      icon: const Icon(Icons.delete_outline),
+                      icon: const Icon(AppIcons.delete),
                       label: const Text('Delete'),
                     ),
                   ),

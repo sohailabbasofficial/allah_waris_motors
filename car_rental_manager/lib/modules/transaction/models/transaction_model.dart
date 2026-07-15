@@ -26,12 +26,18 @@ class TransactionModel {
   final DateTime createdAt;
   final DateTime updatedAt;
 
+  /// Alias matching schema naming (`transactionDate`).
+  DateTime get transactionDate => date;
+
   factory TransactionModel.fromMap(Map<String, Object?> map) {
+    final rawDate = (map['transaction_date'] as String?) ??
+        (map['date'] as String?) ??
+        '';
     return TransactionModel(
       id: map['id'] as int,
       customerId: map['customer_id'] as int,
       customerName: (map['customer_name'] as String?) ?? 'Unknown',
-      date: DateTime.tryParse((map['date'] as String?) ?? '') ?? DateTime.now(),
+      date: DateTime.tryParse(rawDate) ?? DateTime.now(),
       description: (map['description'] as String?) ?? '',
       totalAmount: (map['total_amount'] as num?)?.toDouble() ?? 0,
       receivedAmount: (map['received_amount'] as num?)?.toDouble() ?? 0,
@@ -47,7 +53,7 @@ class TransactionModel {
   Map<String, Object?> toMap() {
     return {
       'customer_id': customerId,
-      'date': date.toIso8601String(),
+      'transaction_date': date.toIso8601String(),
       'description': description,
       'total_amount': totalAmount,
       'received_amount': receivedAmount,
@@ -56,6 +62,16 @@ class TransactionModel {
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
     };
+  }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        ...toMap(),
+        'customer_name': customerName,
+      };
+
+  factory TransactionModel.fromJson(Map<String, dynamic> json) {
+    return TransactionModel.fromMap(Map<String, Object?>.from(json));
   }
 
   TransactionModel copyWith({

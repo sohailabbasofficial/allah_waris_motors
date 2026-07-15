@@ -2,6 +2,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/theme/app_icons.dart';
+import '../../../core/theme/app_spacing.dart';
+import '../../../core/widgets/app_states.dart';
 import '../../../routes/app_routes.dart';
 import '../models/customer_model.dart';
 import '../providers/customer_provider.dart';
@@ -75,19 +78,24 @@ class _CustomerListScreenState extends ConsumerState<CustomerListScreen> {
             onPressed: isRefreshing
                 ? null
                 : () => ref.read(customerListProvider.notifier).refresh(),
-            icon: const Icon(Icons.refresh_rounded),
+            icon: const Icon(AppIcons.refresh),
           ),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _openAdd,
-        icon: const Icon(Icons.person_add_alt_1_rounded),
+        icon: const Icon(AppIcons.addCustomer),
         label: const Text('Add Customer'),
       ),
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.pagePadding,
+              AppSpacing.md,
+              AppSpacing.pagePadding,
+              AppSpacing.sm,
+            ),
             child: SearchBarWidget(
               controller: _searchController,
               onChanged: (value) {
@@ -98,12 +106,14 @@ class _CustomerListScreenState extends ConsumerState<CustomerListScreen> {
           ),
           if (kIsWeb)
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.pagePadding,
+              ),
               child: Material(
                 color: Theme.of(context).colorScheme.secondaryContainer,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
                 child: const Padding(
-                  padding: EdgeInsets.all(12),
+                  padding: EdgeInsets.all(AppSpacing.md),
                   child: Text(
                     'Customer data is stored in SQLite (Android/iOS/desktop). Web shows an empty list.',
                   ),
@@ -112,8 +122,9 @@ class _CustomerListScreenState extends ConsumerState<CustomerListScreen> {
             ),
           Expanded(
             child: asyncState.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (error, _) => _ErrorView(
+              loading: () => const AppLoading(label: 'Loading customers…'),
+              error: (error, _) => AppErrorState(
+                title: 'Could not load customers',
                 message: error.toString(),
                 onRetry: () =>
                     ref.read(customerListProvider.notifier).refresh(),
@@ -136,7 +147,10 @@ class _CustomerListScreenState extends ConsumerState<CustomerListScreen> {
                   onRefresh: () =>
                       ref.read(customerListProvider.notifier).refresh(),
                   child: ListView.builder(
-                    padding: const EdgeInsets.only(bottom: 100, top: 4),
+                    padding: const EdgeInsets.only(
+                      bottom: 100,
+                      top: AppSpacing.xs,
+                    ),
                     itemCount: items.length,
                     itemBuilder: (context, index) {
                       final customer = items[index];
@@ -159,36 +173,6 @@ class _CustomerListScreenState extends ConsumerState<CustomerListScreen> {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _ErrorView extends StatelessWidget {
-  const _ErrorView({required this.message, required this.onRetry});
-
-  final String message;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.error_outline,
-              size: 48,
-              color: Theme.of(context).colorScheme.error,
-            ),
-            const SizedBox(height: 12),
-            Text(message, textAlign: TextAlign.center),
-            const SizedBox(height: 16),
-            FilledButton(onPressed: onRetry, child: const Text('Retry')),
-          ],
-        ),
       ),
     );
   }

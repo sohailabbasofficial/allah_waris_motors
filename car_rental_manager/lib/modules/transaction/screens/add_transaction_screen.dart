@@ -2,6 +2,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/theme/app_icons.dart';
+import '../../../core/theme/app_spacing.dart';
+import '../../../core/widgets/premium_card.dart';
 import '../../customer/providers/customer_provider.dart';
 import '../providers/transaction_provider.dart';
 import '../services/transaction_validation_service.dart';
@@ -105,24 +108,33 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
   Widget build(BuildContext context) {
     final customersAsync = ref.watch(customerListProvider);
     final customers = customersAsync.valueOrNull?.customers ?? [];
+    final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Add Transaction')),
       body: ListView(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(AppSpacing.xl),
         children: [
           if (customers.isEmpty)
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Text(
-                  'No customers found. Add a customer first.',
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.error,
+            PremiumCard(
+              color: scheme.errorContainer.withValues(alpha: 0.45),
+              child: Row(
+                children: [
+                  Icon(AppIcons.warning, color: scheme.error),
+                  const SizedBox(width: AppSpacing.md),
+                  Expanded(
+                    child: Text(
+                      'No customers found. Add a customer first.',
+                      style: TextStyle(
+                        color: scheme.error,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ),
-                ),
+                ],
               ),
             ),
+          if (customers.isEmpty) const SizedBox(height: AppSpacing.lg),
           TransactionForm(
             formKey: _formKey,
             customers: customers,
@@ -139,7 +151,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
             remainingAmount: _remaining,
             enabled: !_saving,
           ),
-          const SizedBox(height: 28),
+          const SizedBox(height: AppSpacing.xxxl),
           Row(
             children: [
               Expanded(
@@ -148,7 +160,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
                   child: const Text('Cancel'),
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: AppSpacing.md),
               Expanded(
                 child: FilledButton.icon(
                   onPressed: _saving || customers.isEmpty ? null : _save,
@@ -158,7 +170,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
                           height: 18,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Icon(Icons.save_outlined),
+                      : const Icon(AppIcons.save),
                   label: Text(_saving ? 'Saving...' : 'Save'),
                 ),
               ),

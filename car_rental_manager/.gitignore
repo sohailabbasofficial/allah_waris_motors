@@ -12,6 +12,11 @@
 .swiftpm/
 migrate_working_dir/
 
+# Local Gradle / JVM junk (do not commit — causes "Filename too long")
+.gradle-home/
+.gradle/
+*.hprof
+
 # IntelliJ related
 *.iml
 *.ipr

@@ -35,6 +35,22 @@ class PaymentRepository {
   final DatabaseHelper _helper;
   final CustomerBalanceService _balanceService;
 
+  static const _select = '''
+SELECT
+  p.id AS id,
+  p.transaction_id AS transaction_id,
+  p.payment_amount AS payment_amount,
+  p.payment_date AS payment_date,
+  p.notes AS notes,
+  p.created_at AS created_at,
+  t.customer_id AS customer_id,
+  c.name AS customer_name,
+  t.remaining_amount AS remaining_balance
+FROM payments p
+INNER JOIN transactions t ON t.id = p.transaction_id
+INNER JOIN customers c ON c.id = t.customer_id
+''';
+
   Future<Database> _db() async {
     final db = await _helper.databaseOrNull;
     if (db == null) throw DatabaseUnavailableException();
@@ -47,17 +63,13 @@ class PaymentRepository {
 
     final rows = customerId == null
         ? await db.rawQuery('''
-            SELECT p.*, c.name AS customer_name
-            FROM payments p
-            INNER JOIN customers c ON c.id = p.customer_id
+            $_select
             ORDER BY datetime(p.payment_date) DESC, datetime(p.created_at) DESC
           ''')
         : await db.rawQuery(
             '''
-            SELECT p.*, c.name AS customer_name
-            FROM payments p
-            INNER JOIN customers c ON c.id = p.customer_id
-            WHERE p.customer_id = ?
+            $_select
+            WHERE t.customer_id = ?
             ORDER BY datetime(p.payment_date) DESC, datetime(p.created_at) DESC
             ''',
             [customerId],
@@ -70,9 +82,7 @@ class PaymentRepository {
     final db = await _db();
     final rows = await db.rawQuery(
       '''
-      SELECT p.*, c.name AS customer_name
-      FROM payments p
-      INNER JOIN customers c ON c.id = p.customer_id
+      $_select
       WHERE p.id = ?
       LIMIT 1
       ''',
@@ -87,40 +97,54 @@ class PaymentRepository {
     int? excludePaymentId,
   }) async {
     final db = await _db();
-    await _balanceService.syncCustomer(db, customerId);
-    final available = await _balanceService.availableBalance(db, customerId);
-    if (excludePaymentId == null) return available;
+    var available = await _balanceService.availableBalance(db, customerId);
+    if (excludePaymentId != null) {
+      final existing = await getById(excludePaymentId);
+      available += existing.paymentAmount;
+    }
+    return available;
+  }
 
-    final existing = await getById(excludePaymentId);
-    // When editing, current payment amount is already applied — add it back.
-    return available + existing.paymentAmount;
+  Future<double> availableForTransaction(
+    int transactionId, {
+    int? excludePaymentId,
+  }) async {
+    final db = await _db();
+    return _balanceService.availableForTransaction(
+      db,
+      transactionId,
+      excludePaymentId: excludePaymentId,
+    );
   }
 
   Future<PaymentModel> add({
-    required int customerId,
+    required int transactionId,
     required DateTime paymentDate,
     required double paymentAmount,
     String? notes,
   }) async {
     final db = await _db();
-    await _balanceService.syncCustomer(db, customerId);
-    final available = await _balanceService.availableBalance(db, customerId);
-    if (paymentAmount > available + 0.0001) {
-      throw PaymentExceedsBalanceException(available);
-    }
+    final id = await db.transaction((txn) async {
+      final available = await _balanceService.availableForTransaction(
+        txn,
+        transactionId,
+      );
+      if (paymentAmount > available + 0.0001) {
+        throw PaymentExceedsBalanceException(available);
+      }
 
-    final now = DateTime.now();
-    final id = await db.insert('payments', {
-      'customer_id': customerId,
-      'payment_date': paymentDate.toIso8601String(),
-      'payment_amount': paymentAmount,
-      'remaining_balance': 0,
-      'notes': _nullableTrim(notes),
-      'created_at': now.toIso8601String(),
-      'updated_at': now.toIso8601String(),
+      final now = DateTime.now();
+      final newId = await txn.insert('payments', {
+        'transaction_id': transactionId,
+        'payment_date': paymentDate.toIso8601String(),
+        'payment_amount': paymentAmount,
+        'notes': _nullableTrim(notes),
+        'created_at': now.toIso8601String(),
+      });
+
+      await _balanceService.syncTransaction(txn, transactionId);
+      return newId;
     });
-
-    await _balanceService.syncCustomer(db, customerId);
     return getById(id);
   }
 
@@ -130,43 +154,46 @@ class PaymentRepository {
     required double paymentAmount,
     String? notes,
   }) async {
-    final db = await _db();
     final existing = await getById(id);
-    final available = await availableBalance(
-      existing.customerId,
+    final available = await availableForTransaction(
+      existing.transactionId,
       excludePaymentId: id,
     );
     if (paymentAmount > available + 0.0001) {
       throw PaymentExceedsBalanceException(available);
     }
 
-    final updated = await db.update(
-      'payments',
-      {
-        'payment_date': paymentDate.toIso8601String(),
-        'payment_amount': paymentAmount,
-        'notes': _nullableTrim(notes),
-        'updated_at': DateTime.now().toIso8601String(),
-      },
-      where: 'id = ?',
-      whereArgs: [id],
-    );
-    if (updated == 0) throw PaymentNotFoundException(id);
+    final db = await _db();
+    await db.transaction((txn) async {
+      final updated = await txn.update(
+        'payments',
+        {
+          'payment_date': paymentDate.toIso8601String(),
+          'payment_amount': paymentAmount,
+          'notes': _nullableTrim(notes),
+        },
+        where: 'id = ?',
+        whereArgs: [id],
+      );
+      if (updated == 0) throw PaymentNotFoundException(id);
+      await _balanceService.syncTransaction(txn, existing.transactionId);
+    });
 
-    await _balanceService.syncCustomer(db, existing.customerId);
     return getById(id);
   }
 
   Future<void> delete(int id) async {
-    final db = await _db();
     final existing = await getById(id);
-    final deleted = await db.delete(
-      'payments',
-      where: 'id = ?',
-      whereArgs: [id],
-    );
-    if (deleted == 0) throw PaymentNotFoundException(id);
-    await _balanceService.syncCustomer(db, existing.customerId);
+    final db = await _db();
+    await db.transaction((txn) async {
+      final deleted = await txn.delete(
+        'payments',
+        where: 'id = ?',
+        whereArgs: [id],
+      );
+      if (deleted == 0) throw PaymentNotFoundException(id);
+      await _balanceService.syncTransaction(txn, existing.transactionId);
+    });
   }
 
   String? _nullableTrim(String? value) {

@@ -7,6 +7,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:googleapis_auth/googleapis_auth.dart' as auth;
 
+import '../../../core/auth/authorized_google_account.dart';
 import '../../../core/constants/app_constants.dart';
 import '../models/backup_file_info.dart';
 
@@ -16,6 +17,9 @@ class GoogleAuthException implements Exception {
 
   @override
   String toString() => message;
+
+  bool get isAccessDenied =>
+      message == AuthorizedGoogleAccount.accessDeniedMessage;
 }
 
 class GoogleDriveException implements Exception {
@@ -49,6 +53,7 @@ class GoogleDriveService {
       switch (event) {
         case GoogleSignInAuthenticationEventSignIn():
           _account = event.user;
+          unawaited(_rejectUnauthorizedAccount());
         case GoogleSignInAuthenticationEventSignOut():
           _account = null;
       }
@@ -57,11 +62,27 @@ class GoogleDriveService {
       final silent = _signIn.attemptLightweightAuthentication();
       if (silent != null) {
         _account = await silent;
+        await _rejectUnauthorizedAccount();
       }
     } catch (_) {
       // Silent auth is optional.
     }
     _initialized = true;
+  }
+
+  /// Signs out immediately if the signed-in email is not the workshop owner.
+  Future<void> _rejectUnauthorizedAccount() async {
+    final account = _account;
+    if (account == null) return;
+    if (AuthorizedGoogleAccount.isAuthorized(account.email)) return;
+    await _signIn.signOut();
+    _account = null;
+  }
+
+  Future<void> _ensureAuthorizedOrThrow(GoogleSignInAccount account) async {
+    if (AuthorizedGoogleAccount.isAuthorized(account.email)) return;
+    await signOut();
+    throw GoogleAuthException(AuthorizedGoogleAccount.accessDeniedMessage);
   }
 
   Future<GoogleSignInAccount> signIn() async {
@@ -78,8 +99,11 @@ class GoogleDriveService {
         );
       }
       _account = await _signIn.authenticate(scopeHint: scopes);
+      await _ensureAuthorizedOrThrow(_account!);
       await _authorizeScopes(interactive: true);
       return _account!;
+    } on GoogleAuthException {
+      rethrow;
     } on GoogleSignInException catch (e) {
       throw GoogleAuthException(
         e.description ?? 'Google Sign-In failed (${e.code.name}).',
@@ -107,6 +131,7 @@ class GoogleDriveService {
     if (account == null) {
       throw GoogleAuthException('Please sign in with Google first.');
     }
+    await _ensureAuthorizedOrThrow(account);
     final authorization = await _authorizeScopes(interactive: interactive);
     return authorization.authClient(scopes: scopes);
   }
@@ -184,15 +209,19 @@ class GoogleDriveService {
     required String fileName,
     required List<int> bytes,
     bool interactive = false,
+    /// When false, always create a new Drive file (never overwrite history).
+    bool overwriteExisting = true,
     void Function(double progress)? onProgress,
   }) async {
     final api = await _driveApi(interactive: interactive);
     final folderId = await ensureBackupFolder(interactive: interactive);
-    final existingId = await _findFileId(
-      api: api,
-      folderId: folderId,
-      name: fileName,
-    );
+    final existingId = overwriteExisting
+        ? await _findFileId(
+            api: api,
+            folderId: folderId,
+            name: fileName,
+          )
+        : null;
 
     final media = drive.Media(
       Stream<List<int>>.fromIterable([bytes]),

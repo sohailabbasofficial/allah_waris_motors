@@ -2,8 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/app_constants.dart';
+import '../../../core/theme/app_icons.dart';
+import '../../../core/utils/responsive.dart';
+import '../../../core/widgets/app_logo.dart';
 import '../../../core/widgets/pin_dots.dart';
 import '../../../core/widgets/pin_keypad.dart';
+import '../../../modules/backup/providers/backup_provider.dart';
 import '../../../routes/app_routes.dart';
 import '../providers/auth_providers.dart';
 
@@ -66,6 +70,19 @@ class _CreatePinScreenState extends ConsumerState<CreatePinScreen> {
 
     await ref.read(pinServiceProvider).savePin(_pin);
     if (!mounted) return;
+
+    final authorized =
+        await ref.read(backupRepositoryProvider).isAuthorizedSession();
+    if (!mounted) return;
+    if (!authorized) {
+      Navigator.of(context).pushNamedAndRemoveUntil(
+        AppRoutes.googleSignIn,
+        (route) => false,
+        arguments: const {'asGate': true},
+      );
+      return;
+    }
+
     Navigator.of(context).pushNamedAndRemoveUntil(
       AppRoutes.home,
       (route) => false,
@@ -78,39 +95,63 @@ class _CreatePinScreenState extends ConsumerState<CreatePinScreen> {
     final subtitle = _confirming
         ? 'Re-enter your 4-digit PIN'
         : 'Choose a 4-digit PIN to secure the app';
+    final scheme = Theme.of(context).colorScheme;
+    final r = Responsive.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: Text(title)),
+      appBar: AppBar(
+        title: Text(title),
+        actions: [
+          Padding(
+            padding: EdgeInsets.only(right: r.pagePadding),
+            child: Icon(AppIcons.security, color: scheme.primary),
+          ),
+        ],
+      ),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-          child: Column(
-            children: [
-              const SizedBox(height: 24),
-              Text(
-                subtitle,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyLarge,
-              ),
-              const SizedBox(height: 32),
-              PinDots(length: _pin.length, hasError: _hasError),
-              const SizedBox(height: 16),
-              SizedBox(
-                height: 24,
-                child: _error == null
-                    ? null
-                    : Text(
-                        _error!,
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.error,
+          padding: r.pageInsets,
+          child: Responsive.constrain(
+            context: context,
+            child: Column(
+              children: [
+                Expanded(
+                  child: SingleChildScrollView(
+                    physics: const BouncingScrollPhysics(),
+                    child: Column(
+                      children: [
+                        SizedBox(height: r.isLandscape ? 4 : 8),
+                        AppLogo(height: r.logoHeight * 0.9),
+                        SizedBox(height: r.isLandscape ? 8 : 16),
+                        Text(
+                          subtitle,
+                          textAlign: TextAlign.center,
+                          style:
+                              Theme.of(context).textTheme.bodyLarge?.copyWith(
+                                    color: scheme.onSurfaceVariant,
+                                  ),
                         ),
-                        textAlign: TextAlign.center,
-                      ),
-              ),
-              const Spacer(),
-              PinKeypad(onDigit: _onDigit, onBackspace: _onBackspace),
-              const SizedBox(height: 16),
-            ],
+                        SizedBox(height: r.isLandscape ? 16 : 28),
+                        PinDots(length: _pin.length, hasError: _hasError),
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          height: 28,
+                          child: _error == null
+                              ? null
+                              : Text(
+                                  _error!,
+                                  style: TextStyle(color: scheme.error),
+                                  textAlign: TextAlign.center,
+                                ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                PinKeypad(onDigit: _onDigit, onBackspace: _onBackspace),
+                const SizedBox(height: 8),
+              ],
+            ),
           ),
         ),
       ),

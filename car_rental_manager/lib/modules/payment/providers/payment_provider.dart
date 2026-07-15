@@ -1,8 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../providers/database_provider.dart';
+import '../../backup/providers/data_change_bus.dart';
 import '../../customer/providers/customer_provider.dart';
 import '../../dashboard/providers/dashboard_provider.dart';
+import '../../transaction/providers/transaction_provider.dart';
 import '../models/payment_model.dart';
 import '../models/payment_state.dart';
 import '../repository/payment_repository.dart';
@@ -64,13 +66,13 @@ class PaymentListNotifier extends AsyncNotifier<PaymentState> {
   }
 
   Future<PaymentModel> add({
-    required int customerId,
+    required int transactionId,
     required DateTime paymentDate,
     required double paymentAmount,
     String? notes,
   }) async {
     final created = await ref.read(paymentRepositoryProvider).add(
-          customerId: customerId,
+          transactionId: transactionId,
           paymentDate: paymentDate,
           paymentAmount: paymentAmount,
           notes: notes,
@@ -103,7 +105,9 @@ class PaymentListNotifier extends AsyncNotifier<PaymentState> {
   Future<void> _reloadRelated() async {
     await refresh();
     await ref.read(customerListProvider.notifier).refresh();
+    await ref.read(transactionListProvider.notifier).refresh();
     await ref.read(dashboardProvider.notifier).refresh();
+    ref.read(dataChangeBusProvider.notifier).markDirty();
   }
 }
 
@@ -120,12 +124,21 @@ final customerAvailableBalanceProvider =
   return ref.watch(paymentRepositoryProvider).availableBalance(customerId);
 });
 
+final transactionAvailableBalanceProvider =
+    FutureProvider.autoDispose.family<double, int>((ref, transactionId) async {
+  ref.watch(paymentListProvider);
+  ref.watch(transactionListProvider);
+  return ref
+      .watch(paymentRepositoryProvider)
+      .availableForTransaction(transactionId);
+});
+
 /// Available balance when editing a payment (excludes that payment amount).
 final editableAvailableBalanceProvider = FutureProvider.autoDispose
-    .family<double, ({int customerId, int excludePaymentId})>((ref, args) async {
+    .family<double, ({int transactionId, int excludePaymentId})>((ref, args) async {
   ref.watch(paymentListProvider);
-  return ref.watch(paymentRepositoryProvider).availableBalance(
-        args.customerId,
+  return ref.watch(paymentRepositoryProvider).availableForTransaction(
+        args.transactionId,
         excludePaymentId: args.excludePaymentId,
       );
 });

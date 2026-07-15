@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../providers/database_provider.dart';
+import '../../backup/providers/data_change_bus.dart';
 import '../../customer/providers/customer_provider.dart';
 import '../../dashboard/providers/dashboard_provider.dart';
 import '../models/transaction_model.dart';
@@ -105,6 +106,7 @@ class TransactionListNotifier extends AsyncNotifier<TransactionState> {
     await refresh();
     await ref.read(customerListProvider.notifier).refresh();
     await ref.read(dashboardProvider.notifier).refresh();
+    ref.read(dataChangeBusProvider.notifier).markDirty();
   }
 }
 
@@ -112,4 +114,12 @@ final transactionDetailProvider =
     FutureProvider.autoDispose.family<TransactionModel, int>((ref, id) async {
   ref.watch(transactionListProvider);
   return ref.watch(transactionRepositoryProvider).getById(id);
+});
+
+final openTransactionsProvider = FutureProvider.autoDispose
+    .family<List<TransactionModel>, int>((ref, customerId) async {
+  ref.watch(transactionListProvider);
+  return ref
+      .watch(transactionRepositoryProvider)
+      .getOpenByCustomer(customerId);
 });

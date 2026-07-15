@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_icons.dart';
+import '../../../core/theme/app_spacing.dart';
 import '../../../core/utils/currency_formatter.dart';
+import '../../../core/widgets/premium_card.dart';
 import '../models/transaction_model.dart';
 
 class TransactionCard extends StatelessWidget {
@@ -38,98 +42,140 @@ class TransactionCard extends StatelessWidget {
           ),
         );
       },
-      child: Card(
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 14, 8, 8),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      transaction.customerName,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w700,
+      child: PremiumCard(
+        margin: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.pagePadding,
+          vertical: 6,
+        ),
+        padding: const EdgeInsets.fromLTRB(16, 16, 12, 8),
+        onTap: onView,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: colorScheme.primary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    AppIcons.transactions,
+                    color: AppColors.brandBlue,
+                    size: 22,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        transaction.customerName,
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: -0.2,
+                            ),
+                      ),
+                      const SizedBox(height: 2),
+                      Row(
+                        children: [
+                          Icon(
+                            AppIcons.calendar,
+                            size: 14,
+                            color: colorScheme.onSurfaceVariant,
                           ),
+                          const SizedBox(width: 4),
+                          Text(
+                            dateLabel,
+                            style:
+                                Theme.of(context).textTheme.labelLarge?.copyWith(
+                                      color: colorScheme.onSurfaceVariant,
+                                    ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: colorScheme.secondaryContainer.withValues(alpha: 0.7),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                transaction.description,
+                style: TextStyle(
+                  color: colorScheme.onSecondaryContainer,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            Row(
+              children: [
+                Expanded(
+                  child: _AmountColumn(
+                    label: 'Total',
+                    value: CurrencyFormatter.format(transaction.totalAmount),
+                    color: AppColors.brandBlue,
+                  ),
+                ),
+                Expanded(
+                  child: _AmountColumn(
+                    label: 'Received',
+                    value: CurrencyFormatter.format(
+                      transaction.receivedAmount,
                     ),
-                  ),
-                  Text(
-                    dateLabel,
-                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: colorScheme.secondaryContainer,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  transaction.description,
-                  style: TextStyle(
-                    color: colorScheme.onSecondaryContainer,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 12,
+                    color: AppColors.received,
                   ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              Row(
+                Expanded(
+                  child: _AmountColumn(
+                    label: 'Remaining',
+                    value: CurrencyFormatter.format(
+                      transaction.remainingAmount,
+                    ),
+                    color: AppColors.remaining,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            Align(
+              alignment: Alignment.centerRight,
+              child: Wrap(
+                spacing: 0,
                 children: [
-                  Expanded(
-                    child: _AmountColumn(
-                      label: 'Total',
-                      value: CurrencyFormatter.format(transaction.totalAmount),
-                      color: colorScheme.primary,
-                    ),
+                  TextButton.icon(
+                    onPressed: onView,
+                    icon: const Icon(AppIcons.transactions, size: 18),
+                    label: const Text('View'),
                   ),
-                  Expanded(
-                    child: _AmountColumn(
-                      label: 'Received',
-                      value: CurrencyFormatter.format(
-                        transaction.receivedAmount,
-                      ),
-                      color: const Color(0xFF2E7D32),
-                    ),
+                  TextButton.icon(
+                    onPressed: onEdit,
+                    icon: const Icon(AppIcons.edit, size: 18),
+                    label: const Text('Edit'),
                   ),
-                  Expanded(
-                    child: _AmountColumn(
-                      label: 'Remaining',
-                      value: CurrencyFormatter.format(
-                        transaction.remainingAmount,
-                      ),
-                      color: colorScheme.error,
+                  TextButton.icon(
+                    onPressed: onDelete,
+                    style: TextButton.styleFrom(
+                      foregroundColor: colorScheme.error,
                     ),
+                    icon: const Icon(AppIcons.delete, size: 18),
+                    label: const Text('Delete'),
                   ),
                 ],
               ),
-              const SizedBox(height: 4),
-              Align(
-                alignment: Alignment.centerRight,
-                child: Wrap(
-                  spacing: 0,
-                  children: [
-                    TextButton(onPressed: onView, child: const Text('View')),
-                    TextButton(onPressed: onEdit, child: const Text('Edit')),
-                    TextButton(
-                      onPressed: onDelete,
-                      style: TextButton.styleFrom(
-                        foregroundColor: colorScheme.error,
-                      ),
-                      child: const Text('Delete'),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -163,7 +209,11 @@ class _AmountColumn extends StatelessWidget {
           value,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: TextStyle(fontWeight: FontWeight.w700, color: color),
+          style: TextStyle(
+            fontWeight: FontWeight.w800,
+            color: color,
+            letterSpacing: -0.2,
+          ),
         ),
       ],
     );

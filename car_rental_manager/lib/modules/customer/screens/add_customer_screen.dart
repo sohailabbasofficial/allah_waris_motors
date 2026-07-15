@@ -2,6 +2,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/theme/app_icons.dart';
+import '../../../core/theme/app_spacing.dart';
+import '../../../core/widgets/premium_card.dart';
 import '../providers/customer_provider.dart';
 import '../repository/customer_repository.dart';
 import '../widgets/customer_form.dart';
@@ -76,27 +79,34 @@ class _AddCustomerScreenState extends ConsumerState<AddCustomerScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Add Customer')),
       body: ListView(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(AppSpacing.xl),
         children: [
-          CustomerForm(
-            formKey: _formKey,
-            nameController: _nameController,
-            phoneController: _phoneController,
-            cnicController: _cnicController,
-            addressController: _addressController,
-            enabled: !_saving,
+          PremiumCard(
+            padding: const EdgeInsets.all(AppSpacing.xl),
+            child: CustomerForm(
+              formKey: _formKey,
+              nameController: _nameController,
+              phoneController: _phoneController,
+              cnicController: _cnicController,
+              addressController: _addressController,
+              enabled: !_saving,
+            ),
           ),
-          const SizedBox(height: 28),
-          FilledButton.icon(
-            onPressed: _saving ? null : _save,
-            icon: _saving
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.save_outlined),
-            label: Text(_saving ? 'Saving...' : 'Save Customer'),
+          const SizedBox(height: AppSpacing.xxl),
+          SizedBox(
+            width: double.infinity,
+            height: 52,
+            child: FilledButton.icon(
+              onPressed: _saving ? null : _save,
+              icon: _saving
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(AppIcons.save),
+              label: Text(_saving ? 'Saving...' : 'Save Customer'),
+            ),
           ),
         ],
       ),

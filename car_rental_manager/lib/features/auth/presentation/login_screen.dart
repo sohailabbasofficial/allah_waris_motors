@@ -4,10 +4,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/app_constants.dart';
+import '../../../core/theme/app_icons.dart';
+import '../../../core/utils/responsive.dart';
+import '../../../core/widgets/app_logo.dart';
 import '../../../core/widgets/pin_dots.dart';
 import '../../../core/widgets/pin_keypad.dart';
+import '../../../modules/backup/providers/backup_provider.dart';
 import '../../../routes/app_routes.dart';
 import '../providers/auth_providers.dart';
+import '../providers/google_session_provider.dart';
 
 /// PIN login screen with optional biometric unlock.
 class LoginScreen extends ConsumerStatefulWidget {
@@ -55,8 +60,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       _locked = true;
       _lockRemaining = remaining;
       _pin = '';
-      _error =
-          'Too many attempts. Try again in ${remaining.inSeconds}s.';
+      _error = 'Too many attempts. Try again in ${remaining.inSeconds}s.';
       _hasError = true;
     });
     _lockTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
@@ -81,22 +85,46 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   Future<void> _maybePromptBiometric() async {
     final enabled = ref.read(biometricEnabledProvider);
-    final available =
-        await ref.read(biometricAvailableProvider.future);
+    final available = await ref.read(biometricAvailableProvider.future);
     if (!enabled || !available || !mounted || _locked) return;
     await _authenticateBiometric();
   }
 
+  Future<bool> _ensureAuthorizedGoogle() async {
+    final ok =
+        await ref.read(backupRepositoryProvider).isAuthorizedSession();
+    ref.invalidate(authorizedGoogleSessionProvider);
+    if (!mounted) return false;
+    if (!ok) {
+      await ref.read(biometricEnabledProvider.notifier).setEnabled(false);
+      if (!mounted) return false;
+      Navigator.of(context).pushNamedAndRemoveUntil(
+        AppRoutes.googleSignIn,
+        (route) => false,
+        arguments: const {'asGate': true},
+      );
+      return false;
+    }
+    return true;
+  }
+
+  Future<void> _goHome() async {
+    if (!await _ensureAuthorizedGoogle()) return;
+    if (!mounted) return;
+    Navigator.of(context).pushReplacementNamed(AppRoutes.home);
+  }
+
   Future<void> _authenticateBiometric() async {
     if (_authenticating || _locked) return;
+    if (!await _ensureAuthorizedGoogle()) return;
+    if (!mounted) return;
     setState(() => _authenticating = true);
     final ok = await ref.read(biometricServiceProvider).authenticate();
     if (!mounted) return;
     setState(() => _authenticating = false);
     if (ok) {
-      Navigator.of(context).pushReplacementNamed(AppRoutes.home);
+      await _goHome();
     }
-    // On failure, stay on PIN entry (requirement).
   }
 
   void _onDigit(String digit) {
@@ -124,7 +152,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final result = await ref.read(pinServiceProvider).verifyPin(_pin);
     if (!mounted) return;
     if (result.success) {
-      Navigator.of(context).pushReplacementNamed(AppRoutes.home);
+      await _goHome();
       return;
     }
     setState(() {
@@ -143,74 +171,86 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final biometricEnabled = ref.watch(biometricEnabledProvider);
     final showFingerprint = biometricEnabled &&
         biometricAsync.maybeWhen(data: (v) => v, orElse: () => false);
+    final scheme = Theme.of(context).colorScheme;
+    final r = Responsive.of(context);
 
     return Scaffold(
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-          child: Column(
-            children: [
-              const SizedBox(height: 40),
-              Icon(
-                Icons.lock_outline_rounded,
-                size: 64,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                AppConstants.appName,
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                _locked
-                    ? 'Locked — ${_lockRemaining.inSeconds}s remaining'
-                    : 'Enter your PIN',
-                style: Theme.of(context).textTheme.bodyLarge,
-              ),
-              const SizedBox(height: 32),
-              PinDots(length: _pin.length, hasError: _hasError),
-              const SizedBox(height: 16),
-              SizedBox(
-                height: 40,
-                child: _error == null
-                    ? null
-                    : Text(
-                        _error!,
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.error,
+          padding: r.pageInsets,
+          child: Responsive.constrain(
+            context: context,
+            child: Column(
+              children: [
+                Expanded(
+                  child: SingleChildScrollView(
+                    physics: const BouncingScrollPhysics(),
+                    child: Column(
+                      children: [
+                        SizedBox(height: r.isLandscape ? 4 : 8),
+                        AppLogo(height: r.logoHeight, heroTag: 'app-logo'),
+                        SizedBox(height: r.isLandscape ? 8 : 16),
+                        Text(
+                          _locked
+                              ? 'Locked — ${_lockRemaining.inSeconds}s remaining'
+                              : 'Enter your PIN',
+                          textAlign: TextAlign.center,
+                          style:
+                              Theme.of(context).textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                    color: scheme.onSurfaceVariant,
+                                  ),
                         ),
-                        textAlign: TextAlign.center,
-                      ),
-              ),
-              if (showFingerprint) ...[
-                const SizedBox(height: 8),
-                IconButton.filledTonal(
-                  onPressed: _locked || _authenticating
-                      ? null
-                      : _authenticateBiometric,
-                  iconSize: 36,
-                  icon: _authenticating
-                      ? const SizedBox(
-                          width: 28,
-                          height: 28,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.fingerprint),
-                  tooltip: 'Unlock with fingerprint',
+                        SizedBox(height: r.isLandscape ? 16 : 28),
+                        PinDots(length: _pin.length, hasError: _hasError),
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          height: 36,
+                          child: _error == null
+                              ? null
+                              : Text(
+                                  _error!,
+                                  style: TextStyle(color: scheme.error),
+                                  textAlign: TextAlign.center,
+                                ),
+                        ),
+                        if (showFingerprint) ...[
+                          IconButton.filledTonal(
+                            onPressed: _locked || _authenticating
+                                ? null
+                                : _authenticateBiometric,
+                            iconSize: r.shortestSide < 360 ? 28 : 36,
+                            icon: _authenticating
+                                ? const SizedBox(
+                                    width: 24,
+                                    height: 24,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Icon(AppIcons.fingerprint),
+                            tooltip: 'Unlock with fingerprint',
+                          ),
+                          Text(
+                            'Use fingerprint',
+                            style: Theme.of(context)
+                                .textTheme
+                                .labelLarge
+                                ?.copyWith(color: scheme.onSurfaceVariant),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
                 ),
-                const Text('Use fingerprint'),
+                PinKeypad(
+                  onDigit: _onDigit,
+                  onBackspace: _onBackspace,
+                  enabled: !_locked,
+                ),
+                const SizedBox(height: 8),
               ],
-              const Spacer(),
-              PinKeypad(
-                onDigit: _onDigit,
-                onBackspace: _onBackspace,
-                enabled: !_locked,
-              ),
-              const SizedBox(height: 16),
-            ],
+            ),
           ),
         ),
       ),

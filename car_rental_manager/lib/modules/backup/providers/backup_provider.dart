@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -16,6 +18,8 @@ import '../services/backup_notification_service.dart';
 import '../services/connectivity_service.dart';
 import '../services/database_backup_service.dart';
 import '../services/google_drive_service.dart';
+
+export 'data_change_bus.dart';
 
 final googleDriveServiceProvider = Provider<GoogleDriveService>((ref) {
   final service = GoogleDriveService();
@@ -56,8 +60,13 @@ final backupProvider =
 typedef BackupProvider = BackupNotifier;
 
 class BackupNotifier extends AsyncNotifier<BackupState> {
+  Timer? _syncDebounce;
+
   @override
   Future<BackupState> build() async {
+    ref.onDispose(() {
+      _syncDebounce?.cancel();
+    });
     if (kIsWeb) {
       return const BackupState(
         isInitialized: true,
@@ -72,6 +81,33 @@ class BackupNotifier extends AsyncNotifier<BackupState> {
   }
 
   BackupRepository get _repo => ref.read(backupRepositoryProvider);
+
+  /// Debounced Drive sync after local customer/ledger/payment changes.
+  void scheduleSyncAfterLocalChange() {
+    if (kIsWeb) return;
+    _syncDebounce?.cancel();
+    _syncDebounce = Timer(const Duration(seconds: 4), () {
+      unawaited(syncAfterLocalChange());
+    });
+  }
+
+  Future<void> syncAfterLocalChange() async {
+    if (kIsWeb) return;
+    final current = state.valueOrNull;
+    if (current?.isBusy == true) {
+      // Retry shortly if a manual backup/restore is running.
+      scheduleSyncAfterLocalChange();
+      return;
+    }
+    try {
+      final result = await _repo.syncAfterLocalChange();
+      if (result != null) {
+        state = AsyncData(result);
+      }
+    } catch (_) {
+      // Best-effort background sync — failures must not block the UI.
+    }
+  }
 
   Future<void> refresh() async {
     state = const AsyncLoading<BackupState>().copyWithPrevious(state);
@@ -126,9 +162,23 @@ class BackupNotifier extends AsyncNotifier<BackupState> {
   Future<void> restore(BackupFileInfo file) async {
     await _runBusy((onProgress) async {
       await _repo.restoreFromDrive(file: file, onProgress: onProgress);
+      // Force SQLite + all modules to reload from the restored file.
+      ref.invalidate(databaseProvider);
       _invalidateAppData();
       return _repo.loadState();
     });
+  }
+
+  /// One-tap: restore the newest Google Drive backup into local data.
+  Future<int> restoreLatestFromCloud() async {
+    var customers = 0;
+    await _runBusy((onProgress) async {
+      customers = await _repo.restoreLatestFromCloud(onProgress: onProgress);
+      ref.invalidate(databaseProvider);
+      _invalidateAppData();
+      return _repo.loadState();
+    });
+    return customers;
   }
 
   Future<void> maybeRunAutomaticBackup() async {

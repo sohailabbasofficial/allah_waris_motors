@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Allah Waris Motors – User Guide</title>
+  <style>
+    @page { size: A4; margin: 18mm 16mm; }
+    * { box-sizing: border-box; }
+    body {
+      font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+      font-size: 11pt;
+      line-height: 1.45;
+      color: #1a1a1a;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 12px;
+    }
+    h1 {
+      font-size: 22pt;
+      color: #0D47A1;
+      margin: 0 0 6px;
+      border-bottom: 3px solid #1976D2;
+      padding-bottom: 8px;
+    }
+    h2 {
+      font-size: 14pt;
+      color: #0D47A1;
+      margin: 22px 0 8px;
+      page-break-after: avoid;
+      border-left: 4px solid #1976D2;
+      padding-left: 10px;
+    }
+    h3 {
+      font-size: 12pt;
+      color: #1565C0;
+      margin: 14px 0 6px;
+      page-break-after: avoid;
+    }
+    p, li { margin: 4px 0; }
+    .meta { color: #555; font-size: 10pt; margin-bottom: 16px; }
+    .box {
+      background: #F5F9FF;
+      border: 1px solid #BBDEFB;
+      border-radius: 8px;
+      padding: 10px 12px;
+      margin: 10px 0;
+    }
+    .tip {
+      background: #FFF8E1;
+      border: 1px solid #FFE082;
+      border-radius: 8px;
+      padding: 8px 12px;
+      margin: 8px 0;
+    }
+    .warn {
+      background: #FFEBEE;
+      border: 1px solid #EF9A9A;
+      border-radius: 8px;
+      padding: 8px 12px;
+      margin: 8px 0;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 8px 0 12px;
+      font-size: 10pt;
+    }
+    th, td {
+      border: 1px solid #CFD8DC;
+      padding: 6px 8px;
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: #E3F2FD; color: #0D47A1; }
+    ul { margin: 4px 0 8px 18px; padding: 0; }
+    .btn {
+      display: inline-block;
+      background: #E3F2FD;
+      color: #0D47A1;
+      font-weight: 600;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 10pt;
+    }
+    .footer {
+      margin-top: 28px;
+      padding-top: 10px;
+      border-top: 1px solid #B0BEC5;
+      font-size: 9.5pt;
+      color: #546E7A;
+      text-align: center;
+    }
+    .toc a { color: #1565C0; text-decoration: none; }
+    .toc li { margin: 3px 0; }
+  </style>
+</head>
+<body>
+
+  <h1>Allah Waris Motors – User Guide</h1>
+  <p class="meta">
+    Customer Records &amp; Financial Management<br/>
+    Simple documentation for every screen, button and feature<br/>
+    Version guide · Easy English
+  </p>
+
+  <div class="box">
+    <strong>App kya karti hai?</strong><br/>
+    Yeh app workshop / car rental business ke liye hai. Is mein customers, ledger (transactions),
+    payments, reports aur Google Drive backup milta hai. Sirf owner Google account se login hota hai.
+  </div>
+
+  <h2>Table of Contents</h2>
+  <ol class="toc">
+    <li><a href="#start">Start / Login</a></li>
+    <li><a href="#home">Home Tabs &amp; More</a></li>
+    <li><a href="#dashboard">Dashboard (Home)</a></li>
+    <li><a href="#customers">Customers</a></li>
+    <li><a href="#ledger">Ledger (Transactions)</a></li>
+    <li><a href="#payments">Payments</a></li>
+    <li><a href="#reports">Reports</a></li>
+    <li><a href="#settings">Settings</a></li>
+    <li><a href="#backup">Backup, Restore &amp; Sync</a></li>
+    <li><a href="#tips">Important Tips</a></li>
+  </ol>
+
+  <h2 id="start">1. Start / Login</h2>
+
+  <h3>Splash Screen</h3>
+  <p><strong>Kaam:</strong> App khulte hi thodi der branding dikhati hai.</p>
+  <ul>
+    <li>App name: <strong>Allah Waris Motors</strong></li>
+    <li>Tagline, Version, Developer credit</li>
+    <li>Koi button nahi – automatically agay chali jati hai</li>
+  </ul>
+
+  <h3>Owner Sign-In (Google)</h3>
+  <p><strong>Kaam:</strong> Workshop owner Google account se app unlock karti hai.</p>
+  <ul>
+    <li><span class="btn">Sign in with Google</span> – Google account choose karein</li>
+    <li>Sirf authorized email: <strong>allahwarismotors@gmail.com</strong></li>
+    <li>Galt account → <strong>Access Denied</strong> → turant logout</li>
+  </ul>
+  <div class="tip"><strong>Tip:</strong> Pehli baar sahi Google se login ke baad Fingerprint / Face Unlock chalu kar sakte hain (Settings mein).</div>
+
+  <h3>Create PIN</h3>
+  <p><strong>Kaam:</strong> 4-digit PIN set karna (pehli baar / PIN reset ke baad).</p>
+  <ul>
+    <li>Pehle PIN enter → phir Confirm PIN</li>
+    <li>Dono match hone chahiye</li>
+  </ul>
+
+  <h3>Login (Enter your PIN)</h3>
+  <p><strong>Kaam:</strong> PIN ya fingerprint se app kholna.</p>
+  <ul>
+    <li>4 digit PIN enter karein</li>
+    <li><span class="btn">Use fingerprint</span> – agar on ho</li>
+    <li>Galat attempts zyada → thodi der lock</li>
+  </ul>
+
+  <h2 id="home">2. Home Tabs &amp; More</h2>
+  <p>Neeche 5 tabs hain:</p>
+  <table>
+    <tr><th>Tab</th><th>Name</th><th>Kya dikhega</th></tr>
+    <tr><td>1</td><td><strong>Home</strong></td><td>Dashboard / overview</td></tr>
+    <tr><td>2</td><td><strong>Customers</strong></td><td>Customers list</td></tr>
+    <tr><td>3</td><td><strong>Ledger</strong></td><td>Transactions list</td></tr>
+    <tr><td>4</td><td><strong>Payments</strong></td><td>Payments list</td></tr>
+    <tr><td>5</td><td><strong>More</strong></td><td>Extra options sheet</td></tr>
+  </table>
+
+  <h3>More sheet buttons</h3>
+  <table>
+    <tr><th>Button</th><th>Meaning</th></tr>
+    <tr><td><strong>Reports</strong></td><td>Daily / Monthly / Outstanding reports</td></tr>
+    <tr><td><strong>Backup</strong></td><td>Cloud backup center</td></tr>
+    <tr><td><strong>Recover Data</strong></td><td>Drive se data phone par wapas</td></tr>
+    <tr><td><strong>Settings</strong></td><td>PIN, language, theme, backup…</td></tr>
+  </table>
+
+  <h2 id="dashboard">3. Dashboard (Home)</h2>
+  <p><strong>Kaam:</strong> Business ka quick overview.</p>
+
+  <h3>Top buttons</h3>
+  <ul>
+    <li><span class="btn">Refresh</span> – numbers fresh karein</li>
+    <li><span class="btn">Settings</span> – settings kholein</li>
+    <li><span class="btn">Add Customer</span> (neeche blue FAB) – naya customer</li>
+  </ul>
+
+  <h3>Overview cards</h3>
+  <table>
+    <tr><th>Card</th><th>Matlab</th></tr>
+    <tr><td><strong>Total Customers</strong></td><td>Kitne customers register hain</td></tr>
+    <tr><td><strong>Total Amount</strong></td><td>Kul credit / amount issued</td></tr>
+    <tr><td><strong>Total Received</strong></td><td>Kul collection (payments)</td></tr>
+    <tr><td><strong>Remaining Balance</strong></td><td>Abhi pending collection</td></tr>
+    <tr><td><strong>Today's Collection</strong></td><td>Aaj ki payments</td></tr>
+  </table>
+
+  <h3>Quick Actions</h3>
+  <p><strong>Customers</strong> · <strong>Transactions</strong> · <strong>Payments</strong> · <strong>Reports</strong></p>
+
+  <h3>Recover Cloud Data (empty app)</h3>
+  <p>Agar phone par data empty ho (jaise reinstall ke baad), bada banner dikhega:</p>
+  <ul>
+    <li><span class="btn">Recover Cloud Data</span> – latest Drive backup download karke local data update</li>
+  </ul>
+
+  <div class="tip"><strong>Tip:</strong> List scroll karke Recent Customers / Recent Activity bhi dikhegi. Pull down se refresh.</div>
+
+  <h2 id="customers">4. Customers</h2>
+
+  <h3>Customers list</h3>
+  <ul>
+    <li>Search by name or phone</li>
+    <li><span class="btn">Refresh</span></li>
+    <li><span class="btn">Add Customer</span> (FAB)</li>
+    <li>Card tap → Customer Details</li>
+    <li>Edit / Delete actions on card</li>
+  </ul>
+
+  <h3>Add / Edit Customer</h3>
+  <table>
+    <tr><th>Field</th><th>Required?</th></tr>
+    <tr><td>Customer Name</td><td>Yes</td></tr>
+    <tr><td>Phone Number</td><td>Yes</td></tr>
+    <tr><td>CNIC</td><td>No (max 13 digits)</td></tr>
+    <tr><td>Address</td><td>No</td></tr>
+  </table>
+  <p><span class="btn">Save</span> se save; back se cancel.</p>
+
+  <h3>Customer Details</h3>
+  <p>Profile, <strong>Total Amount</strong>, <strong>Total Received</strong>, <strong>Remaining Balance</strong>.</p>
+  <ul>
+    <li><span class="btn">Edit</span> · <span class="btn">Delete</span></li>
+    <li><span class="btn">Ledger</span> · <span class="btn">Payments</span> · <span class="btn">Add Payment</span></li>
+  </ul>
+  <div class="warn"><strong>Delete:</strong> Confirm ke baad customer delete; related data carefully handle hota hai. Confirm zaroor dekhein.</div>
+
+  <h2 id="ledger">5. Ledger (Transactions)</h2>
+  <p>Nav mein naam <strong>Ledger</strong> hai; screen title <strong>Transactions</strong>.</p>
+
+  <h3>List</h3>
+  <ul>
+    <li>Search, date filter, Refresh</li>
+    <li>FAB se naya transaction</li>
+    <li>Tap → details; Edit / Delete</li>
+  </ul>
+
+  <h3>Add / Edit Transaction</h3>
+  <table>
+    <tr><th>Field</th><th>Notes</th></tr>
+    <tr><td>Customer *</td><td>Customer select</td></tr>
+    <tr><td>Date *</td><td>Transaction date</td></tr>
+    <tr><td>Description *</td><td>Car Rent, Advance, Fine, Fuel, Maintenance, Other</td></tr>
+    <tr><td>Total Amount *</td><td>Kul amount</td></tr>
+    <tr><td>Received Amount *</td><td>Pehle se received (Total se zyada nahi)</td></tr>
+    <tr><td>Remaining Amount</td><td>Automatic = Total − Received</td></tr>
+    <tr><td>Notes</td><td>Optional</td></tr>
+  </table>
+
+  <h3>Transaction Details</h3>
+  <p>Poori info + <span class="btn">Edit</span> · <span class="btn">Delete</span></p>
+
+  <h2 id="payments">6. Payments</h2>
+
+  <h3>Payments list</h3>
+  <ul>
+    <li>Search, date filter, Refresh</li>
+    <li><span class="btn">Add Payment</span></li>
+    <li>Tap → edit; Delete payment → amount wapas remaining balance mein</li>
+  </ul>
+
+  <h3>Add / Edit Payment</h3>
+  <ul>
+    <li>Customer select → Transaction select</li>
+    <li>Remaining balance dikhega</li>
+    <li>Payment Date *, Payment Amount * (remaining se zyada nahi), Notes optional</li>
+  </ul>
+
+  <h3>Payment History (per customer)</h3>
+  <p>Customer Details → <span class="btn">Payments</span> se khulegi. Us customer ki payments + Add Payment.</p>
+
+  <h2 id="reports">7. Reports</h2>
+  <p>More → <strong>Reports</strong></p>
+  <table>
+    <tr><th>Report</th><th>Kaam</th></tr>
+    <tr><td><strong>Daily Report</strong></td><td>Ek din ki activity &amp; collection</td></tr>
+    <tr><td><strong>Monthly Report</strong></td><td>Ek mahine ka summary</td></tr>
+    <tr><td><strong>Customer Ledger</strong></td><td>Ek customer ki poori history</td></tr>
+    <tr><td><strong>Outstanding Customers</strong></td><td>Jin ka balance baqi hai</td></tr>
+  </table>
+  <ul>
+    <li>Date / Month <span class="btn">Change</span> / <span class="btn">Apply</span></li>
+    <li><span class="btn">Export</span> – text copy (clipboard); PDF export abhi optional/limited ho sakta hai</li>
+    <li>Outstanding mein sort: Highest / Lowest balance</li>
+  </ul>
+
+  <h2 id="settings">8. Settings</h2>
+
+  <h3>Security</h3>
+  <ul>
+    <li><span class="btn">Change PIN</span> – current → new → confirm</li>
+    <li><span class="btn">Fingerprint Login</span> – on/off (owner Google signed in + device support)</li>
+    <li><span class="btn">Reset PIN</span> – PIN clear; Create PIN dubara</li>
+  </ul>
+
+  <h3>Language</h3>
+  <p><strong>English</strong> · <strong>Urdu (اردو)</strong></p>
+
+  <h3>Appearance</h3>
+  <p><strong>Light</strong> · <strong>Dark</strong> · <strong>System</strong> theme</p>
+
+  <h3>App</h3>
+  <ul>
+    <li><strong>App Version</strong></li>
+    <li><strong>About App</strong></li>
+    <li><strong>Developer:</strong> Developed by Qazi Sohail Abbas</li>
+  </ul>
+
+  <h3>Backup &amp; Restore (Settings mein)</h3>
+  <ul>
+    <li><span class="btn">Recover Cloud Data</span></li>
+    <li>Google <span class="btn">Connect</span> / <span class="btn">Logout</span></li>
+    <li>Auto daily backup on/off + Backup time</li>
+    <li><span class="btn">Backup Now</span> · <span class="btn">Restore Backup</span> · <span class="btn">Backup Center</span></li>
+  </ul>
+
+  <h2 id="backup">9. Backup, Restore &amp; Sync</h2>
+
+  <h3>Backup Center</h3>
+  <p><strong>Kaam:</strong> Google Drive par database upload / manage.</p>
+  <ul>
+    <li>Folder name: <strong>Car Rental Manager Backups</strong></li>
+    <li><span class="btn">Backup Now</span> – abhi upload (naya history file bhi ban sakta hai)</li>
+    <li>Internet + owner Google zaroori</li>
+    <li>Web browser mein Drive backup support nahi</li>
+  </ul>
+
+  <h3>Restore Backup</h3>
+  <ul>
+    <li>Drive se backup list → file select → <span class="btn">Restore</span></li>
+    <li>Local data replace hoti hai (poori database)</li>
+    <li>Success ke baad Home</li>
+  </ul>
+
+  <h3>Recover Cloud Data (one tap)</h3>
+  <p><strong>Kaam:</strong> Latest Drive backup uthakar phone local data update.</p>
+  <p><strong>Kahan mila:</strong> Empty Home banner · More → Recover Data · Settings · Restore screen</p>
+  <ol>
+    <li><span class="btn">Recover Cloud Data</span> / <span class="btn">Recover now</span></li>
+    <li>Confirm</li>
+    <li>Customers, ledger, payments load</li>
+  </ol>
+
+  <h3>Automatic sync (edits ke baad)</h3>
+  <p>Customer / Transaction / Payment <strong>add, edit, delete</strong> ke ~4 seconds baad app quietly Drive par latest backup update karti hai (agar online + signed in).</p>
+
+  <h3>Reinstall ke baad sahi tareeqa</h3>
+  <ol>
+    <li>App install</li>
+    <li>Owner Google Sign-In</li>
+    <li>PIN set/enter</li>
+    <li><strong>Pehle Recover Cloud Data</strong> (Backup Now empty data se mat dabayein pehle)</li>
+    <li>Phir normal use + auto sync / Backup Now</li>
+  </ol>
+
+  <div class="warn">
+    <strong>Important:</strong> Empty phone par pehle Backup Now mat chalao – pehle Recover/Restore karo.
+    Agar Drive file Trash mein ho to pehle Google Drive Trash se Restore karein.
+  </div>
+
+  <h2 id="tips">10. Important Tips (Asaan points)</h2>
+  <ul>
+    <li>Sirf <strong>allahwarismotors@gmail.com</strong> se app / backup chale ga.</li>
+    <li>Phone change / uninstall: pehle kabhi Backup / sync hona chahiye; naya phone → Recover.</li>
+    <li>“App is not safe” Play Protect message sideload APK ki wajah se hota hai – <strong>Install anyway</strong> choose karein (workshop apni APK).</li>
+    <li>Fingerprint Settings → Security mein, Google login ke baad.</li>
+    <li>Currency har jagah <strong>Rs</strong> format mein.</li>
+  </ul>
+
+  <div class="footer">
+    Allah Waris Motors – User Guide<br/>
+    Developed by Qazi Sohail Abbas<br/>
+    For workshop owner use
+  </div>
+
+</body>
+</html>

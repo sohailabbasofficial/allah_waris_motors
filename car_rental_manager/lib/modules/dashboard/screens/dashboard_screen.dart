@@ -2,8 +2,17 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/constants/app_constants.dart';
+import '../../../core/l10n/l10n_extensions.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_icons.dart';
+import '../../../core/theme/app_spacing.dart';
 import '../../../core/utils/currency_formatter.dart';
+import '../../../core/utils/responsive.dart';
+import '../../../core/widgets/app_states.dart';
+import '../../../core/widgets/premium_card.dart';
+import '../../../core/widgets/quick_action_tile.dart';
+import '../../../core/widgets/section_header.dart';
+import '../../../modules/backup/widgets/recover_cloud_data_button.dart';
 import '../../../routes/app_routes.dart';
 import '../models/dashboard_state.dart';
 import '../providers/dashboard_provider.dart';
@@ -19,53 +28,24 @@ class DashboardScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
     final dashboardAsync = ref.watch(dashboardProvider);
     final isRefreshing = dashboardAsync.isLoading && dashboardAsync.hasValue;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text(AppConstants.appName),
+        title: Text(l10n.appName),
         actions: [
           IconButton(
-            tooltip: 'Customers',
-            icon: const Icon(Icons.people_alt_outlined),
-            onPressed: () =>
-                Navigator.of(context).pushNamed(AppRoutes.customers),
-          ),
-          IconButton(
-            tooltip: 'Transactions',
-            icon: const Icon(Icons.receipt_long_outlined),
-            onPressed: () =>
-                Navigator.of(context).pushNamed(AppRoutes.transactions),
-          ),
-          IconButton(
-            tooltip: 'Payments',
-            icon: const Icon(Icons.payments_outlined),
-            onPressed: () =>
-                Navigator.of(context).pushNamed(AppRoutes.payments),
-          ),
-          IconButton(
-            tooltip: 'Reports',
-            icon: const Icon(Icons.insights_outlined),
-            onPressed: () =>
-                Navigator.of(context).pushNamed(AppRoutes.reports),
-          ),
-          IconButton(
-            tooltip: 'Backup',
-            icon: const Icon(Icons.cloud_upload_outlined),
-            onPressed: () =>
-                Navigator.of(context).pushNamed(AppRoutes.backup),
-          ),
-          IconButton(
-            tooltip: 'Refresh',
+            tooltip: l10n.refresh,
             onPressed: isRefreshing
                 ? null
                 : () => ref.read(dashboardProvider.notifier).refresh(),
-            icon: const Icon(Icons.refresh_rounded),
+            icon: const Icon(AppIcons.refresh),
           ),
           IconButton(
-            tooltip: 'Settings',
-            icon: const Icon(Icons.settings_outlined),
+            tooltip: l10n.settings,
+            icon: const Icon(AppIcons.settings),
             onPressed: () =>
                 Navigator.of(context).pushNamed(AppRoutes.settings),
           ),
@@ -79,12 +59,13 @@ class DashboardScreen extends ConsumerWidget {
             await ref.read(dashboardProvider.notifier).refresh();
           }
         },
-        icon: const Icon(Icons.person_add_alt_1_rounded),
-        label: const Text('Add Customer'),
+        icon: const Icon(AppIcons.addCustomer),
+        label: Text(l10n.addCustomer),
       ),
       body: dashboardAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => _ErrorBody(
+        loading: () => AppLoading(label: l10n.loading),
+        error: (error, _) => AppErrorState(
+          title: l10n.couldNotLoadDashboard,
           message: error.toString(),
           onRetry: () => ref.read(dashboardProvider.notifier).refresh(),
         ),
@@ -123,88 +104,145 @@ class _DashboardBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final width = constraints.maxWidth;
-        final crossAxisCount = width >= 1100
-            ? 5
-            : width >= 750
-                ? 3
-                : width >= 520
-                    ? 2
-                    : 1;
-        final cardAspect = crossAxisCount >= 3
-            ? 1.35
-            : crossAxisCount == 2
-                ? 1.45
-                : 2.4;
-        final horizontalPadding = width >= 900 ? 32.0 : 16.0;
+    final l10n = context.l10n;
+    final r = Responsive.of(context);
+    final crossAxisCount = r.statsCrossAxisCount();
+    final bottomPad = 88.0 + MediaQuery.paddingOf(context).bottom;
 
-        return CustomScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          slivers: [
-            SliverPadding(
-              padding: EdgeInsets.fromLTRB(
-                horizontalPadding,
-                16,
-                horizontalPadding,
-                100,
-              ),
-              sliver: SliverList(
-                delegate: SliverChildListDelegate([
-                  DashboardHeader(
-                    isRefreshing: isRefreshing,
-                    onRefresh: () {
-                      onRefresh();
-                    },
-                  ),
-                  if (kIsWeb) ...[
-                    const SizedBox(height: 12),
-                    const _WebSqliteBanner(),
-                  ],
-                  const SizedBox(height: 20),
-                  _StatsGrid(
-                    state: state,
-                    crossAxisCount: crossAxisCount,
-                    childAspectRatio: cardAspect,
-                  ),
-                  const SizedBox(height: 28),
-                  Row(
-                    children: [
-                      const Expanded(
-                        child: _SectionTitle(title: 'Recent Customers'),
-                      ),
-                      TextButton(
-                        onPressed: () => Navigator.of(context)
-                            .pushNamed(AppRoutes.customers),
-                        child: const Text('See all'),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  _RecentCustomersCard(
-                    state: state,
-                    onAddCustomer: onAddCustomer,
-                  ),
-                  const SizedBox(height: 24),
-                  Row(
-                    children: [
-                      const Expanded(
-                        child: _SectionTitle(title: 'Recent Transactions'),
-                      ),
-                      TextButton(
-                        onPressed: () => Navigator.of(context)
-                            .pushNamed(AppRoutes.transactions),
-                        child: const Text('See all'),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  _RecentTransactionsCard(state: state),
-                ]),
-              ),
+    return Responsive.constrain(
+      context: context,
+      child: CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(
+          parent: BouncingScrollPhysics(),
+        ),
+        slivers: [
+          SliverPadding(
+            padding: EdgeInsets.fromLTRB(
+              r.pagePadding,
+              AppSpacing.lg,
+              r.pagePadding,
+              bottomPad,
             ),
-          ],
+            sliver: SliverList(
+              delegate: SliverChildListDelegate([
+                DashboardHeader(
+                  isRefreshing: isRefreshing,
+                  onRefresh: () {
+                    onRefresh();
+                  },
+                ),
+                if (kIsWeb) ...[
+                  const SizedBox(height: AppSpacing.md),
+                  const _WebSqliteBanner(),
+                ],
+                if (state.isEmpty) ...[
+                  const SizedBox(height: AppSpacing.md),
+                  const RecoverCloudDataButton(emphasized: true),
+                ],
+                const SizedBox(height: AppSpacing.xl),
+                SectionHeader(title: l10n.overview),
+                const SizedBox(height: AppSpacing.sm),
+                _StatsGrid(
+                  state: state,
+                  crossAxisCount: crossAxisCount,
+                  mainAxisExtent: r.statsMainAxisExtent(),
+                ),
+                const SizedBox(height: AppSpacing.xxl),
+                SectionHeader(title: l10n.quickActions),
+                const SizedBox(height: AppSpacing.sm),
+                const _QuickActionsGrid(),
+                const SizedBox(height: AppSpacing.xxl),
+                SectionHeader(
+                  title: l10n.recentCustomers,
+                  trailing: IconButton(
+                    tooltip: l10n.seeAll,
+                    onPressed: () =>
+                        Navigator.of(context).pushNamed(AppRoutes.customers),
+                    icon: const Icon(AppIcons.customers, size: 20),
+                  ),
+                ),
+                _RecentCustomersCard(
+                  state: state,
+                  onAddCustomer: onAddCustomer,
+                ),
+                const SizedBox(height: AppSpacing.xxl),
+                SectionHeader(
+                  title: l10n.recentActivity,
+                  trailing: IconButton(
+                    tooltip: l10n.seeAll,
+                    onPressed: () => Navigator.of(context)
+                        .pushNamed(AppRoutes.transactions),
+                    icon: const Icon(AppIcons.calendar, size: 20),
+                  ),
+                ),
+                _RecentTransactionsCard(state: state),
+              ]),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _QuickActionsGrid extends StatelessWidget {
+  const _QuickActionsGrid();
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final r = Responsive.of(context);
+    final columns = r.quickActionsCrossAxisCount();
+
+    final actions = [
+      (
+        AppIcons.customers,
+        l10n.customers,
+        l10n.customersActionDesc,
+        AppColors.cardBlue,
+        AppRoutes.customers,
+      ),
+      (
+        AppIcons.transactions,
+        l10n.transactions,
+        l10n.transactionsActionDesc,
+        AppColors.cardAmber,
+        AppRoutes.transactions,
+      ),
+      (
+        AppIcons.payments,
+        l10n.payments,
+        l10n.paymentsActionDesc,
+        AppColors.cardGreen,
+        AppRoutes.payments,
+      ),
+      (
+        AppIcons.reports,
+        l10n.reports,
+        l10n.reportsActionDesc,
+        AppColors.cardPurple,
+        AppRoutes.reports,
+      ),
+    ];
+
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: actions.length,
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: columns,
+        mainAxisSpacing: 12,
+        crossAxisSpacing: 12,
+        childAspectRatio: r.quickActionsChildAspectRatio(),
+      ),
+      itemBuilder: (context, index) {
+        final item = actions[index];
+        return QuickActionTile(
+          icon: item.$1,
+          label: item.$2,
+          description: item.$3,
+          color: item.$4,
+          onTap: () => Navigator.of(context).pushNamed(item.$5),
         );
       },
     );
@@ -215,46 +253,72 @@ class _StatsGrid extends StatelessWidget {
   const _StatsGrid({
     required this.state,
     required this.crossAxisCount,
-    required this.childAspectRatio,
+    required this.mainAxisExtent,
   });
 
   final DashboardState state;
   final int crossAxisCount;
-  final double childAspectRatio;
+  final double mainAxisExtent;
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final stats = state.stats;
-    final cards = [
+    final cards = <({
+      String title,
+      String value,
+      String subtitle,
+      String? footer,
+      Color? footerColor,
+      IconData icon,
+      Color color,
+    })>[
       (
-        'Total Customers',
-        '${stats.totalCustomers}',
-        Icons.people_alt_rounded,
-        const Color(0xFF1565C0),
+        title: l10n.totalCustomers,
+        value: '${stats.totalCustomers}',
+        subtitle: l10n.registeredCustomers,
+        footer: l10n.activeBook,
+        footerColor: AppColors.cardGreen,
+        icon: AppIcons.customers,
+        color: AppColors.cardBlue,
       ),
       (
-        'Total Udhaar',
-        CurrencyFormatter.format(stats.totalUdhaar),
-        Icons.account_balance_wallet_rounded,
-        const Color(0xFFE65100),
+        title: l10n.totalUdhaar,
+        value: CurrencyFormatter.format(stats.totalUdhaar),
+        subtitle: l10n.outstandingCredit,
+        footer: l10n.needsFollowUp,
+        footerColor: AppColors.cardAmber,
+        icon: AppIcons.money,
+        color: AppColors.cardAmber,
       ),
       (
-        'Total Received',
-        CurrencyFormatter.format(stats.totalReceived),
-        Icons.check_circle_rounded,
-        const Color(0xFF2E7D32),
+        title: l10n.totalReceived,
+        value: CurrencyFormatter.format(stats.totalReceived),
+        subtitle: l10n.paymentsCollected,
+        footer: l10n.healthyInflow,
+        footerColor: AppColors.cardGreen,
+        icon: AppIcons.received,
+        color: AppColors.cardGreen,
       ),
       (
-        'Remaining Balance',
-        CurrencyFormatter.format(stats.remainingBalance),
-        Icons.trending_down_rounded,
-        const Color(0xFFC62828),
+        title: l10n.remainingBalance,
+        value: CurrencyFormatter.format(stats.remainingBalance),
+        subtitle: l10n.stillPending,
+        footer: stats.remainingBalance > 0 ? l10n.actionNeeded : l10n.cleared,
+        footerColor: stats.remainingBalance > 0
+            ? AppColors.error
+            : AppColors.cardGreen,
+        icon: AppIcons.remaining,
+        color: AppColors.error,
       ),
       (
-        "Today's Collection",
-        CurrencyFormatter.format(stats.todaysCollection),
-        Icons.today_rounded,
-        const Color(0xFF6A1B9A),
+        title: l10n.todaysCollection,
+        value: CurrencyFormatter.format(stats.todaysCollection),
+        subtitle: l10n.paymentsToday,
+        footer: l10n.liveTotal,
+        footerColor: AppColors.cardPurple,
+        icon: AppIcons.today,
+        color: AppColors.cardPurple,
       ),
     ];
 
@@ -266,34 +330,21 @@ class _StatsGrid extends StatelessWidget {
         crossAxisCount: crossAxisCount,
         mainAxisSpacing: 12,
         crossAxisSpacing: 12,
-        childAspectRatio: childAspectRatio,
+        mainAxisExtent: mainAxisExtent,
       ),
       itemBuilder: (context, index) {
         final card = cards[index];
         return DashboardCard(
           index: index,
-          title: card.$1,
-          value: card.$2,
-          icon: card.$3,
-          color: card.$4,
+          title: card.title,
+          value: card.value,
+          subtitle: card.subtitle,
+          footer: card.footer,
+          footerColor: card.footerColor,
+          icon: card.icon,
+          color: card.color,
         );
       },
-    );
-  }
-}
-
-class _SectionTitle extends StatelessWidget {
-  const _SectionTitle({required this.title});
-
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      title,
-      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w700,
-          ),
     );
   }
 }
@@ -309,13 +360,14 @@ class _RecentCustomersCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
+    return PremiumCard(
+      padding: EdgeInsets.zero,
       child: state.recentCustomers.isEmpty
           ? EmptyStateWidget(
-              icon: Icons.person_off_outlined,
-              title: 'No customers yet',
-              message: 'Add your first customer to see them here.',
-              actionLabel: 'Add Customer',
+              icon: AppIcons.customer,
+              title: context.l10n.noCustomersYet,
+              message: context.l10n.noCustomersHint,
+              actionLabel: context.l10n.addCustomer,
               onAction: () {
                 onAddCustomer();
               },
@@ -333,7 +385,7 @@ class _RecentCustomersCard extends StatelessWidget {
                     },
                   ),
                   if (i < state.recentCustomers.length - 1)
-                    const Divider(height: 1),
+                    const Divider(height: 1, indent: 16, endIndent: 16),
                 ],
               ],
             ),
@@ -348,12 +400,13 @@ class _RecentTransactionsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
+    return PremiumCard(
+      padding: EdgeInsets.zero,
       child: state.recentTransactions.isEmpty
-          ? const EmptyStateWidget(
-              icon: Icons.receipt_long_outlined,
-              title: 'No transactions yet',
-              message: 'Payments will show up here once recorded.',
+          ? EmptyStateWidget(
+              icon: AppIcons.transactions,
+              title: context.l10n.noTransactionsYet,
+              message: context.l10n.noTransactionsHint,
             )
           : Column(
               children: [
@@ -368,7 +421,7 @@ class _RecentTransactionsCard extends StatelessWidget {
                     },
                   ),
                   if (i < state.recentTransactions.length - 1)
-                    const Divider(height: 1),
+                    const Divider(height: 1, indent: 16, endIndent: 16),
                 ],
               ],
             ),
@@ -383,13 +436,13 @@ class _WebSqliteBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: Theme.of(context).colorScheme.secondaryContainer,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(AppSpacing.md),
         child: Row(
           children: [
             Icon(
-              Icons.info_outline,
+              AppIcons.info,
               color: Theme.of(context).colorScheme.onSecondaryContainer,
             ),
             const SizedBox(width: 10),
@@ -401,41 +454,6 @@ class _WebSqliteBanner extends StatelessWidget {
                     ),
               ),
             ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ErrorBody extends StatelessWidget {
-  const _ErrorBody({required this.message, required this.onRetry});
-
-  final String message;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.error_outline,
-              size: 48,
-              color: Theme.of(context).colorScheme.error,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Could not load dashboard',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 8),
-            Text(message, textAlign: TextAlign.center),
-            const SizedBox(height: 16),
-            FilledButton(onPressed: onRetry, child: const Text('Retry')),
           ],
         ),
       ),

@@ -1,5 +1,6 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../core/auth/authorized_google_account.dart';
 import '../../../core/constants/app_constants.dart';
 import '../models/backup_file_info.dart';
 import '../models/backup_state.dart';
@@ -30,15 +31,21 @@ class BackupRepository {
 
   Future<BackupState> loadState() async {
     await _drive.initialize();
+    await _syncAuthorizedSession();
     final account = _drive.currentAccount;
+    final authorized =
+        account != null && AuthorizedGoogleAccount.isAuthorized(account.email);
     final lastMs = _prefs.getInt(AppConstants.keyLastBackupAt);
     return BackupState(
       isInitialized: true,
-      isSignedIn: account != null,
-      accountEmail: account?.email ??
-          _prefs.getString(AppConstants.keyGoogleAccountEmail),
-      accountDisplayName: account?.displayName ??
-          _prefs.getString(AppConstants.keyGoogleAccountDisplayName),
+      isSignedIn: authorized,
+      accountEmail: authorized
+          ? account.email
+          : null,
+      accountDisplayName: authorized
+          ? (account.displayName ??
+              _prefs.getString(AppConstants.keyGoogleAccountDisplayName))
+          : null,
       autoBackupEnabled:
           _prefs.getBool(AppConstants.keyAutoBackupEnabled) ?? false,
       autoBackupHour: _prefs.getInt(AppConstants.keyAutoBackupHour) ?? 21,
@@ -54,9 +61,57 @@ class BackupRepository {
     );
   }
 
+  /// True when the workshop owner's Google account is currently signed in.
+  Future<bool> isAuthorizedSession() async {
+    await _drive.initialize();
+    await _syncAuthorizedSession();
+    final account = _drive.currentAccount;
+    return account != null &&
+        AuthorizedGoogleAccount.isAuthorized(account.email);
+  }
+
+  Future<void> _syncAuthorizedSession() async {
+    final account = _drive.currentAccount;
+    if (account == null) {
+      final flagged =
+          _prefs.getBool(AppConstants.keyAuthorizedGoogleSignedIn) ?? false;
+      if (flagged) {
+        // Lightweight restore failed — require a fresh Google Sign-In.
+        await _clearAuthorizedPrefs();
+      }
+      return;
+    }
+    if (!AuthorizedGoogleAccount.isAuthorized(account.email)) {
+      await _drive.signOut();
+      await _clearAuthorizedPrefs();
+      return;
+    }
+    await _prefs.setBool(AppConstants.keyAuthorizedGoogleSignedIn, true);
+    await _prefs.setString(AppConstants.keyGoogleAccountEmail, account.email);
+    if (account.displayName != null) {
+      await _prefs.setString(
+        AppConstants.keyGoogleAccountDisplayName,
+        account.displayName!,
+      );
+    }
+  }
+
+  Future<void> _clearAuthorizedPrefs() async {
+    await _prefs.setBool(AppConstants.keyAuthorizedGoogleSignedIn, false);
+    await _prefs.remove(AppConstants.keyGoogleAccountEmail);
+    await _prefs.remove(AppConstants.keyGoogleAccountDisplayName);
+  }
+
   Future<BackupState> signIn() async {
     await _ensureOnline();
     final account = await _drive.signIn();
+    // Defense in depth — Drive service already enforces this.
+    if (!AuthorizedGoogleAccount.isAuthorized(account.email)) {
+      await _drive.signOut();
+      await _clearAuthorizedPrefs();
+      throw GoogleAuthException(AuthorizedGoogleAccount.accessDeniedMessage);
+    }
+    await _prefs.setBool(AppConstants.keyAuthorizedGoogleSignedIn, true);
     await _prefs.setString(AppConstants.keyGoogleAccountEmail, account.email);
     if (account.displayName != null) {
       await _prefs.setString(
@@ -69,8 +124,9 @@ class BackupRepository {
 
   Future<BackupState> disconnect() async {
     await _drive.disconnect();
-    await _prefs.remove(AppConstants.keyGoogleAccountEmail);
-    await _prefs.remove(AppConstants.keyGoogleAccountDisplayName);
+    await _clearAuthorizedPrefs();
+    // Biometric unlock is only valid after an authorized Google Sign-In.
+    await _prefs.setBool(AppConstants.keyBiometricEnabled, false);
     return loadState();
   }
 
@@ -87,18 +143,30 @@ class BackupRepository {
     bool skipIfUnchanged = false,
     bool interactive = true,
     bool notify = false,
+    /// When true, allow uploading even if there are 0 customers (e.g. after deletes).
+    bool allowEmpty = false,
+    /// When false, overwrite the stable latest Drive file instead of a new stamp.
+    bool createNewVersion = true,
+    bool bypassRestoreQuietWindow = false,
     void Function(String message, double? progress)? onProgress,
   }) async {
     await _ensureOnline();
-    if (_drive.currentAccount == null &&
-        (_prefs.getString(AppConstants.keyGoogleAccountEmail)?.isEmpty ??
-            true)) {
-      throw GoogleAuthException('Sign in with Google before backing up.');
+    await _ensureAuthorizedForCloud();
+
+    final localCustomers = await _dbBackup.customerCount();
+    // Never upload an empty install via manual/daily backup — would wipe Drive.
+    if (localCustomers == 0 && !allowEmpty) {
+      throw GoogleDriveException(
+        'Local data is empty. Restore your Drive backup first. '
+        'Backing up now would erase your cloud data.',
+      );
     }
 
-    // Ensure we have an active session / Drive scopes.
-    if (_drive.currentAccount == null) {
-      await _drive.signIn();
+    if (!bypassRestoreQuietWindow && _isWithinRestoreQuietWindow()) {
+      throw GoogleDriveException(
+        'Backup paused for a short time after restore. '
+        'Wait a few minutes, then try again.',
+      );
     }
 
     final fingerprint = await _dbBackup.fingerprint();
@@ -128,11 +196,16 @@ class BackupRepository {
     final dbBytes = await dbFile.readAsBytes();
     final settingsBytes = await _dbBackup.exportSettingsBytes();
 
+    final fileName = createNewVersion
+        ? _timestampedBackupDbName()
+        : AppConstants.driveBackupDbFileName;
+
     onProgress?.call('Uploading database…', 0.35);
     final uploaded = await _drive.uploadBytes(
-      fileName: AppConstants.driveBackupDbFileName,
+      fileName: fileName,
       bytes: dbBytes,
       interactive: interactive,
+      overwriteExisting: !createNewVersion,
       onProgress: (p) => onProgress?.call('Uploading database…', 0.35 + p * 0.4),
     );
 
@@ -141,6 +214,7 @@ class BackupRepository {
       fileName: AppConstants.driveBackupSettingsFileName,
       bytes: settingsBytes,
       interactive: interactive,
+      overwriteExisting: true,
     );
 
     await _persistResult(
@@ -161,21 +235,76 @@ class BackupRepository {
     return loadState();
   }
 
+  /// Silent sync used after local add/edit/delete (updates the latest Drive file).
+  Future<BackupState?> syncAfterLocalChange() async {
+    if (!await isAuthorizedSession()) return null;
+    try {
+      final online = await _connectivity.hasInternet();
+      if (!online) return null;
+      return backupNow(
+        skipIfUnchanged: true,
+        interactive: false,
+        notify: false,
+        allowEmpty: true,
+        createNewVersion: false,
+        bypassRestoreQuietWindow: true,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String _timestampedBackupDbName() {
+    final n = DateTime.now();
+    String two(int v) => v.toString().padLeft(2, '0');
+    return '${AppConstants.driveBackupDbPrefix}_'
+        '${n.year}${two(n.month)}${two(n.day)}_'
+        '${two(n.hour)}${two(n.minute)}${two(n.second)}.db';
+  }
+
+  bool _isWithinRestoreQuietWindow() {
+    final ms = _prefs.getInt(AppConstants.keyLastRestoreAt);
+    if (ms == null) return false;
+    final ago = DateTime.now()
+        .difference(DateTime.fromMillisecondsSinceEpoch(ms));
+    return ago < const Duration(hours: 6);
+  }
+
   Future<List<BackupFileInfo>> listRemoteBackups({
     bool interactive = true,
   }) async {
     await _ensureOnline();
-    if (_drive.currentAccount == null) {
-      await _drive.signIn();
-    }
+    await _ensureAuthorizedForCloud();
     final files = await _drive.listBackupFiles(interactive: interactive);
-    return files
+    final dbFiles = files
         .where(
           (f) =>
               f.name == AppConstants.driveBackupDbFileName ||
-              f.name.endsWith('.db'),
+              (f.name.startsWith(AppConstants.driveBackupDbPrefix) &&
+                  f.name.endsWith('.db')),
         )
-        .toList();
+        .toList()
+      ..sort((a, b) => b.modifiedTime.compareTo(a.modifiedTime));
+    return dbFiles;
+  }
+
+  /// One-tap recover: download the newest Drive backup into local SQLite.
+  /// Returns how many customers were restored.
+  Future<int> restoreLatestFromCloud({
+    void Function(String message, double? progress)? onProgress,
+  }) async {
+    onProgress?.call('Looking for cloud backup…', 0.05);
+    final files = await listRemoteBackups(interactive: true);
+    if (files.isEmpty) {
+      throw GoogleDriveException(
+        'No backup found on Google Drive. '
+        'Open Drive Trash and restore any deleted backup first.',
+      );
+    }
+    final latest = files.first;
+    onProgress?.call('Found ${latest.name}', 0.1);
+    await restoreFromDrive(file: latest, onProgress: onProgress);
+    return _dbBackup.customerCount();
   }
 
   Future<void> restoreFromDrive({
@@ -183,9 +312,7 @@ class BackupRepository {
     void Function(String message, double? progress)? onProgress,
   }) async {
     await _ensureOnline();
-    if (_drive.currentAccount == null) {
-      await _drive.signIn();
-    }
+    await _ensureAuthorizedForCloud();
 
     onProgress?.call('Downloading backup…', 0.15);
     final bytes = await _drive.downloadFile(
@@ -199,9 +326,9 @@ class BackupRepository {
     await _dbBackup.validateDatabaseBytes(bytes);
 
     onProgress?.call('Restoring database…', 0.8);
-    await _dbBackup.restoreDatabaseBytes(bytes);
+    final restoredCustomers = await _dbBackup.restoreDatabaseBytes(bytes);
 
-    // Best-effort settings restore from sibling JSON.
+    // Best-effort settings restore from sibling JSON (never touch Drive DB files).
     try {
       final siblings = await _drive.listBackupFiles(interactive: false);
       final settingsMatches = siblings.where(
@@ -219,21 +346,47 @@ class BackupRepository {
       // Database restore already succeeded; settings are optional.
     }
 
+    await _prefs.setInt(
+      AppConstants.keyLastRestoreAt,
+      DateTime.now().millisecondsSinceEpoch,
+    );
+    // Pause auto-backup so an empty/stale run cannot overwrite Drive after restore.
+    await _prefs.setBool(AppConstants.keyAutoBackupEnabled, false);
+
     await _persistResult(
       status: BackupStatus.success,
       sizeBytes: bytes.length,
       fingerprint: await _dbBackup.fingerprint(),
     );
-    onProgress?.call('Restore complete', 1);
+    onProgress?.call(
+      'Restore complete ($restoredCustomers customers)',
+      1,
+    );
+  }
+
+  Future<void> _ensureAuthorizedForCloud() async {
+    if (!await isAuthorizedSession()) {
+      if (_drive.currentAccount == null) {
+        await _drive.signIn();
+      }
+      if (!await isAuthorizedSession()) {
+        throw GoogleAuthException(AuthorizedGoogleAccount.accessDeniedMessage);
+      }
+    }
   }
 
   /// Runs automatic backup once per day after the configured time.
   Future<BackupState?> maybeRunAutomaticBackup() async {
     final enabled = _prefs.getBool(AppConstants.keyAutoBackupEnabled) ?? false;
     if (!enabled) return null;
-    if (_drive.currentAccount == null &&
-        (_prefs.getString(AppConstants.keyGoogleAccountEmail)?.isEmpty ??
-            true)) {
+    if (!await isAuthorizedSession()) {
+      return null;
+    }
+    // Never auto-upload an empty database (wipes cloud data after reinstall).
+    if (await _dbBackup.customerCount() == 0) {
+      return null;
+    }
+    if (_isWithinRestoreQuietWindow()) {
       return null;
     }
 

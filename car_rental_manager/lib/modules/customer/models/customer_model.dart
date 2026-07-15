@@ -1,4 +1,6 @@
 /// Customer entity persisted in SQLite.
+///
+/// Financial fields are computed from transactions + payments (not stored).
 class CustomerModel {
   const CustomerModel({
     required this.id,
@@ -25,15 +27,19 @@ class CustomerModel {
   final DateTime updatedAt;
 
   factory CustomerModel.fromMap(Map<String, Object?> map) {
+    final totalUdhaar = (map['total_udhaar'] as num?)?.toDouble() ?? 0;
+    final totalReceived = (map['total_received'] as num?)?.toDouble() ?? 0;
+    final remaining = (map['remaining_balance'] as num?)?.toDouble() ??
+        (totalUdhaar - totalReceived);
     return CustomerModel(
       id: map['id'] as int,
       name: (map['name'] as String?) ?? '',
       phone: (map['phone'] as String?) ?? '',
       cnic: map['cnic'] as String?,
       address: map['address'] as String?,
-      totalUdhaar: (map['total_udhaar'] as num?)?.toDouble() ?? 0,
-      totalReceived: (map['total_received'] as num?)?.toDouble() ?? 0,
-      remainingBalance: (map['remaining_balance'] as num?)?.toDouble() ?? 0,
+      totalUdhaar: totalUdhaar,
+      totalReceived: totalReceived,
+      remainingBalance: remaining < 0 ? 0 : remaining,
       createdAt: DateTime.tryParse((map['created_at'] as String?) ?? '') ??
           DateTime.now(),
       updatedAt: DateTime.tryParse((map['updated_at'] as String?) ?? '') ??
@@ -48,12 +54,20 @@ class CustomerModel {
       'phone': phone,
       'cnic': cnic,
       'address': address,
-      'total_udhaar': totalUdhaar,
-      'total_received': totalReceived,
-      'remaining_balance': remainingBalance,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
     };
+  }
+
+  Map<String, dynamic> toJson() => {
+        ...toMap(includeId: true),
+        'total_udhaar': totalUdhaar,
+        'total_received': totalReceived,
+        'remaining_balance': remainingBalance,
+      };
+
+  factory CustomerModel.fromJson(Map<String, dynamic> json) {
+    return CustomerModel.fromMap(Map<String, Object?>.from(json));
   }
 
   CustomerModel copyWith({

@@ -3,6 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/theme/app_icons.dart';
+import '../../../core/theme/app_spacing.dart';
+import '../../../core/widgets/app_search_field.dart';
+import '../../../core/widgets/app_states.dart';
 import '../../../routes/app_routes.dart';
 import '../models/transaction_model.dart';
 import '../providers/transaction_provider.dart';
@@ -71,6 +75,7 @@ class _TransactionListScreenState extends ConsumerState<TransactionListScreen> {
     final asyncState = ref.watch(transactionListProvider);
     final filterDate = asyncState.valueOrNull?.filterDate;
     final isRefreshing = asyncState.isLoading && asyncState.hasValue;
+    final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
       appBar: AppBar(
@@ -80,9 +85,7 @@ class _TransactionListScreenState extends ConsumerState<TransactionListScreen> {
             tooltip: 'Filter by date',
             onPressed: _pickFilterDate,
             icon: Icon(
-              filterDate == null
-                  ? Icons.calendar_today_outlined
-                  : Icons.event_available,
+              filterDate == null ? AppIcons.calendar : AppIcons.today,
             ),
           ),
           if (filterDate != null)
@@ -90,57 +93,49 @@ class _TransactionListScreenState extends ConsumerState<TransactionListScreen> {
               tooltip: 'Clear date filter',
               onPressed: () =>
                   ref.read(transactionListProvider.notifier).setFilterDate(null),
-              icon: const Icon(Icons.filter_alt_off_outlined),
+              icon: const Icon(AppIcons.filter),
             ),
           IconButton(
             tooltip: 'Refresh',
             onPressed: isRefreshing
                 ? null
                 : () => ref.read(transactionListProvider.notifier).refresh(),
-            icon: const Icon(Icons.refresh_rounded),
+            icon: const Icon(AppIcons.refresh),
           ),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _openAdd,
-        icon: const Icon(Icons.add_card_rounded),
+        icon: const Icon(AppIcons.add),
         label: const Text('Add Transaction'),
       ),
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-            child: TextField(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.pagePadding,
+              AppSpacing.md,
+              AppSpacing.pagePadding,
+              AppSpacing.sm,
+            ),
+            child: AppSearchField(
               controller: _searchController,
+              hintText: 'Search by customer name',
               onChanged: (value) {
                 ref.read(transactionListProvider.notifier).setQuery(value);
                 setState(() {});
               },
-              decoration: InputDecoration(
-                hintText: 'Search by customer name',
-                prefixIcon: const Icon(Icons.search_rounded),
-                suffixIcon: _searchController.text.isEmpty
-                    ? null
-                    : IconButton(
-                        onPressed: () {
-                          _searchController.clear();
-                          ref
-                              .read(transactionListProvider.notifier)
-                              .setQuery('');
-                          setState(() {});
-                        },
-                        icon: const Icon(Icons.close_rounded),
-                      ),
-              ),
             ),
           ),
           if (filterDate != null)
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.pagePadding,
+              ),
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: Chip(
-                  avatar: const Icon(Icons.event, size: 18),
+                  avatar: const Icon(AppIcons.calendar, size: 18),
                   label: Text(
                     'Date: ${DateFormat('dd MMM yyyy').format(filterDate)}',
                   ),
@@ -152,12 +147,15 @@ class _TransactionListScreenState extends ConsumerState<TransactionListScreen> {
             ),
           if (kIsWeb)
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.pagePadding,
+                vertical: 4,
+              ),
               child: Material(
-                color: Theme.of(context).colorScheme.secondaryContainer,
-                borderRadius: BorderRadius.circular(12),
+                color: scheme.secondaryContainer,
+                borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
                 child: const Padding(
-                  padding: EdgeInsets.all(12),
+                  padding: EdgeInsets.all(AppSpacing.md),
                   child: Text(
                     'Transactions use SQLite (Android/iOS/desktop). Web shows an empty list.',
                   ),
@@ -166,21 +164,12 @@ class _TransactionListScreenState extends ConsumerState<TransactionListScreen> {
             ),
           Expanded(
             child: asyncState.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(e.toString()),
-                    const SizedBox(height: 12),
-                    FilledButton(
-                      onPressed: () => ref
-                          .read(transactionListProvider.notifier)
-                          .refresh(),
-                      child: const Text('Retry'),
-                    ),
-                  ],
-                ),
+              loading: () => const AppLoading(label: 'Loading transactions…'),
+              error: (e, _) => AppErrorState(
+                title: 'Could not load transactions',
+                message: e.toString(),
+                onRetry: () =>
+                    ref.read(transactionListProvider.notifier).refresh(),
               ),
               data: (state) {
                 final items = state.filtered;
@@ -193,7 +182,8 @@ class _TransactionListScreenState extends ConsumerState<TransactionListScreen> {
                 if (items.isEmpty) {
                   return const EmptyTransactionWidget(
                     title: 'No matches',
-                    message: 'Try another customer name or clear the date filter.',
+                    message:
+                        'Try another customer name or clear the date filter.',
                   );
                 }
                 return RefreshIndicator(

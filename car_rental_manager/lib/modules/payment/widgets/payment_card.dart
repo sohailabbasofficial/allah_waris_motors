@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_icons.dart';
+import '../../../core/theme/app_spacing.dart';
 import '../../../core/utils/currency_formatter.dart';
+import '../../../core/widgets/premium_card.dart';
 import '../models/payment_model.dart';
 
 class PaymentCard extends StatelessWidget {
@@ -37,77 +41,127 @@ class PaymentCard extends StatelessWidget {
           ),
         );
       },
-      child: Card(
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 14, 8, 8),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+      child: PremiumCard(
+        margin: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.pagePadding,
+          vertical: 6,
+        ),
+        padding: const EdgeInsets.fromLTRB(16, 16, 12, 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: AppColors.received.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    AppIcons.payments,
+                    color: AppColors.received,
+                    size: 22,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        payment.customerName,
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: -0.2,
+                            ),
+                      ),
+                      const SizedBox(height: 2),
+                      Row(
+                        children: [
+                          Icon(
+                            AppIcons.calendar,
+                            size: 14,
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            date,
+                            style:
+                                Theme.of(context).textTheme.labelLarge?.copyWith(
+                                      color: colorScheme.onSurfaceVariant,
+                                    ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            Row(
+              children: [
+                Expanded(
+                  child: _Metric(
+                    label: 'Paid',
+                    value: CurrencyFormatter.format(payment.paymentAmount),
+                    color: AppColors.received,
+                  ),
+                ),
+                Expanded(
+                  child: _Metric(
+                    label: 'Remaining after',
+                    value: CurrencyFormatter.format(payment.remainingBalance),
+                    color: AppColors.remaining,
+                  ),
+                ),
+              ],
+            ),
+            if (notes != null && notes.isNotEmpty) ...[
+              const SizedBox(height: AppSpacing.md),
               Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  Icon(
+                    AppIcons.notes,
+                    size: 16,
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 6),
                   Expanded(
                     child: Text(
-                      payment.customerName,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w700,
+                      notes,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
                           ),
                     ),
                   ),
-                  Text(
-                    date,
-                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                  ),
                 ],
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: _Metric(
-                      label: 'Paid',
-                      value: CurrencyFormatter.format(payment.paymentAmount),
-                      color: const Color(0xFF2E7D32),
-                    ),
-                  ),
-                  Expanded(
-                    child: _Metric(
-                      label: 'Remaining after',
-                      value:
-                          CurrencyFormatter.format(payment.remainingBalance),
-                      color: colorScheme.error,
-                    ),
-                  ),
-                ],
-              ),
-              if (notes != null && notes.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Text(
-                  notes,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                ),
-              ],
-              Align(
-                alignment: Alignment.centerRight,
-                child: Wrap(
-                  children: [
-                    TextButton(onPressed: onEdit, child: const Text('Edit')),
-                    TextButton(
-                      onPressed: onDelete,
-                      style: TextButton.styleFrom(
-                        foregroundColor: colorScheme.error,
-                      ),
-                      child: const Text('Delete'),
-                    ),
-                  ],
-                ),
               ),
             ],
-          ),
+            Align(
+              alignment: Alignment.centerRight,
+              child: Wrap(
+                children: [
+                  TextButton.icon(
+                    onPressed: onEdit,
+                    icon: const Icon(AppIcons.edit, size: 18),
+                    label: const Text('Edit'),
+                  ),
+                  TextButton.icon(
+                    onPressed: onDelete,
+                    style: TextButton.styleFrom(
+                      foregroundColor: colorScheme.error,
+                    ),
+                    icon: const Icon(AppIcons.delete, size: 18),
+                    label: const Text('Delete'),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -139,7 +193,11 @@ class _Metric extends StatelessWidget {
         const SizedBox(height: 2),
         Text(
           value,
-          style: TextStyle(fontWeight: FontWeight.w700, color: color),
+          style: TextStyle(
+            fontWeight: FontWeight.w800,
+            color: color,
+            letterSpacing: -0.2,
+          ),
         ),
       ],
     );

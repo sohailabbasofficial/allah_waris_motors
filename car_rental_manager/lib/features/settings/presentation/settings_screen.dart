@@ -2,14 +2,23 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
+import '../../../core/auth/authorized_google_account.dart';
 import '../../../core/constants/app_constants.dart';
+import '../../../core/l10n/l10n_extensions.dart';
+import '../../../core/theme/app_icons.dart';
+import '../../../core/theme/app_spacing.dart';
+import '../../../core/widgets/premium_card.dart';
+import '../../../core/widgets/section_header.dart';
 import '../../../modules/backup/providers/backup_provider.dart';
 import '../../../modules/backup/utils/backup_formatters.dart';
 import '../../../modules/backup/widgets/auto_backup_switch.dart';
 import '../../../modules/backup/widgets/backup_status_card.dart';
 import '../../../modules/backup/widgets/google_account_card.dart';
+import '../../../modules/backup/widgets/recover_cloud_data_button.dart';
 import '../../../routes/app_routes.dart';
 import '../../auth/providers/auth_providers.dart';
+import '../../auth/providers/google_session_provider.dart';
+import '../providers/locale_provider.dart';
 import '../providers/theme_provider.dart';
 
 /// Modern settings: security, appearance, app info, and backup & restore.
@@ -17,21 +26,20 @@ class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
   Future<void> _confirmResetPin(BuildContext context, WidgetRef ref) async {
+    final l10n = context.l10n;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Reset PIN'),
-        content: const Text(
-          'This removes your current PIN. You will need to create a new one. Continue?',
-        ),
+        title: Text(l10n.resetPin),
+        content: Text(l10n.resetPinConfirm),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
+            child: Text(l10n.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Reset'),
+            child: Text(l10n.reset),
           ),
         ],
       ),
@@ -48,15 +56,19 @@ class SettingsScreen extends ConsumerWidget {
   }
 
   void _showAbout(BuildContext context) {
+    final l10n = context.l10n;
     showAboutDialog(
       context: context,
-      applicationName: AppConstants.appName,
+      applicationName: l10n.appName,
       applicationVersion: '1.0.0',
-      applicationLegalese: 'Local car rental management app.',
-      children: const [
-        SizedBox(height: 12),
-        Text(
-          'Allah Waris Motors helps you manage vehicles and rentals securely on this device.',
+      applicationLegalese: l10n.tagline,
+      children: [
+        const SizedBox(height: 12),
+        Text(l10n.aboutBody),
+        const SizedBox(height: 12),
+        const Text(
+          AppConstants.developedBy,
+          style: TextStyle(fontWeight: FontWeight.w600),
         ),
       ],
     );
@@ -78,38 +90,100 @@ class SettingsScreen extends ConsumerWidget {
         .setAutoBackupTime(picked.hour, picked.minute);
   }
 
+  Future<void> _logoutGoogle(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Logout Google account?'),
+        content: const Text(
+          'You will be signed out of Backup & Restore and must sign in again '
+          'with the workshop owner Google account to use the app.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Logout'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+
+    try {
+      await ref.read(backupProvider.notifier).disconnectGoogle();
+      await ref.read(biometricEnabledProvider.notifier).setEnabled(false);
+      ref.invalidate(authorizedGoogleSessionProvider);
+      if (!context.mounted) return;
+      Navigator.of(context).pushNamedAndRemoveUntil(
+        AppRoutes.googleSignIn,
+        (route) => false,
+        arguments: const {'asGate': true},
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$e')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
     final themeMode = ref.watch(themeModeProvider);
+    final locale = ref.watch(localeProvider);
+    final language = AppLanguage.fromCode(locale.languageCode);
     final biometricEnabled = ref.watch(biometricEnabledProvider);
     final biometricAvailable = ref.watch(biometricAvailableProvider);
     final backupAsync = ref.watch(backupProvider);
     final backupState = backupAsync.valueOrNull;
-    final showFingerprint = biometricAvailable.maybeWhen(
-      data: (v) => v,
-      orElse: () => false,
-    );
+    final googleAuthorized = backupState?.isSignedIn == true &&
+        AuthorizedGoogleAccount.isAuthorized(backupState?.accountEmail);
+    final showFingerprint = googleAuthorized &&
+        biometricAvailable.maybeWhen(
+          data: (v) => v,
+          orElse: () => false,
+        );
+    final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Settings')),
+      appBar: AppBar(title: Text(l10n.settings)),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.pagePadding,
+          AppSpacing.md,
+          AppSpacing.pagePadding,
+          AppSpacing.xxxl,
+        ),
         children: [
-          const _SectionHeader(title: 'Security'),
+          SectionHeader(title: l10n.security),
           _SettingsCard(
             children: [
               ListTile(
-                leading: const Icon(Icons.pin_outlined),
-                title: const Text('Change PIN'),
-                trailing: const Icon(Icons.chevron_right),
+                leading: const _LeadingIcon(icon: AppIcons.pin),
+                title: Text(l10n.changePin),
+                trailing: const Icon(AppIcons.chevron),
                 onTap: () =>
                     Navigator.of(context).pushNamed(AppRoutes.changePin),
               ),
+              if (!googleAuthorized)
+                ListTile(
+                  leading: const _LeadingIcon(icon: AppIcons.fingerprint),
+                  title: Text(l10n.fingerprintLogin),
+                  subtitle: const Text(
+                    'Available after signing in with the owner Google account',
+                  ),
+                  enabled: false,
+                ),
               if (showFingerprint)
                 SwitchListTile(
-                  secondary: const Icon(Icons.fingerprint),
-                  title: const Text('Fingerprint Login'),
-                  subtitle: const Text('Unlock with biometrics'),
+                  secondary: const _LeadingIcon(icon: AppIcons.fingerprint),
+                  title: Text(l10n.fingerprintLogin),
+                  subtitle: Text(l10n.fingerprintSubtitle),
                   value: biometricEnabled,
                   onChanged: (value) async {
                     if (value) {
@@ -138,39 +212,61 @@ class SettingsScreen extends ConsumerWidget {
                   },
                 ),
               ListTile(
-                leading: Icon(
-                  Icons.lock_reset,
-                  color: Theme.of(context).colorScheme.error,
+                leading: _LeadingIcon(
+                  icon: AppIcons.security,
+                  color: scheme.error,
                 ),
-                title: const Text('Reset PIN'),
-                trailing: const Icon(Icons.chevron_right),
+                title: Text(l10n.resetPin),
+                trailing: const Icon(AppIcons.chevron),
                 onTap: () => _confirmResetPin(context, ref),
               ),
             ],
           ),
-          const SizedBox(height: 20),
-          const _SectionHeader(title: 'Appearance'),
+          const SizedBox(height: AppSpacing.xl),
+          SectionHeader(title: l10n.language),
           _SettingsCard(
             children: [
               _ThemeOptionTile(
-                icon: Icons.light_mode_outlined,
-                title: 'Light Theme',
+                icon: Icons.language_rounded,
+                title: l10n.languageEnglishNative,
+                selected: language == AppLanguage.english,
+                onTap: () => ref
+                    .read(localeProvider.notifier)
+                    .setLanguage(AppLanguage.english),
+              ),
+              _ThemeOptionTile(
+                icon: Icons.translate_rounded,
+                title: l10n.languageUrduNative,
+                selected: language == AppLanguage.urdu,
+                onTap: () => ref
+                    .read(localeProvider.notifier)
+                    .setLanguage(AppLanguage.urdu),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.xl),
+          SectionHeader(title: l10n.appearance),
+          _SettingsCard(
+            children: [
+              _ThemeOptionTile(
+                icon: Icons.light_mode_rounded,
+                title: l10n.lightTheme,
                 selected: themeMode == ThemeMode.light,
                 onTap: () => ref
                     .read(themeModeProvider.notifier)
                     .setThemeMode(ThemeMode.light),
               ),
               _ThemeOptionTile(
-                icon: Icons.dark_mode_outlined,
-                title: 'Dark Theme',
+                icon: Icons.dark_mode_rounded,
+                title: l10n.darkTheme,
                 selected: themeMode == ThemeMode.dark,
                 onTap: () => ref
                     .read(themeModeProvider.notifier)
                     .setThemeMode(ThemeMode.dark),
               ),
               _ThemeOptionTile(
-                icon: Icons.settings_brightness_outlined,
-                title: 'System Theme',
+                icon: AppIcons.theme,
+                title: l10n.systemTheme,
                 selected: themeMode == ThemeMode.system,
                 onTap: () => ref
                     .read(themeModeProvider.notifier)
@@ -178,8 +274,8 @@ class SettingsScreen extends ConsumerWidget {
               ),
             ],
           ),
-          const SizedBox(height: 20),
-          const _SectionHeader(title: 'App'),
+          const SizedBox(height: AppSpacing.xl),
+          SectionHeader(title: l10n.app),
           _SettingsCard(
             children: [
               FutureBuilder<PackageInfo>(
@@ -188,8 +284,8 @@ class SettingsScreen extends ConsumerWidget {
                   final version = snapshot.data?.version ?? '...';
                   final build = snapshot.data?.buildNumber ?? '';
                   return ListTile(
-                    leading: const Icon(Icons.info_outline),
-                    title: const Text('App Version'),
+                    leading: const _LeadingIcon(icon: AppIcons.info),
+                    title: Text(l10n.appVersion),
                     subtitle: Text(
                       build.isEmpty ? version : '$version ($build)',
                     ),
@@ -197,15 +293,22 @@ class SettingsScreen extends ConsumerWidget {
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.article_outlined),
-                title: const Text('About App'),
-                trailing: const Icon(Icons.chevron_right),
+                leading: const _LeadingIcon(icon: AppIcons.notes),
+                title: Text(l10n.aboutApp),
+                trailing: const Icon(AppIcons.chevron),
                 onTap: () => _showAbout(context),
+              ),
+              const ListTile(
+                leading: _LeadingIcon(icon: AppIcons.customers),
+                title: Text('Developer'),
+                subtitle: Text(AppConstants.developedBy),
               ),
             ],
           ),
-          const SizedBox(height: 20),
-          const _SectionHeader(title: 'Backup & Restore'),
+          const SizedBox(height: AppSpacing.xl),
+          SectionHeader(title: l10n.backupAndRestore),
+          const RecoverCloudDataButton(emphasized: true),
+          const SizedBox(height: AppSpacing.sm),
           if (backupState != null) ...[
             GoogleAccountCard(
               state: backupState,
@@ -215,22 +318,11 @@ class SettingsScreen extends ConsumerWidget {
                       Navigator.of(context).pushNamed(AppRoutes.googleSignIn),
               onDisconnect: backupState.isBusy
                   ? null
-                  : () async {
-                      try {
-                        await ref
-                            .read(backupProvider.notifier)
-                            .disconnectGoogle();
-                      } catch (e) {
-                        if (!context.mounted) return;
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('$e')),
-                        );
-                      }
-                    },
+                  : () => _logoutGoogle(context, ref),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.sm),
             BackupStatusCard(state: backupState),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.sm),
             AutoBackupSwitch(
               enabled: backupState.autoBackupEnabled,
               timeLabel: backupState.autoBackupTimeLabel,
@@ -240,40 +332,61 @@ class SettingsScreen extends ConsumerWidget {
                   .setAutoBackupEnabled(value),
               onPickTime: () => _pickBackupTime(context, ref),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.sm),
           ],
           _SettingsCard(
             children: [
               ListTile(
-                leading: const Icon(Icons.cloud_upload_outlined),
+                leading: const _LeadingIcon(icon: AppIcons.backup),
                 title: const Text('Backup Now'),
                 subtitle: Text(
                   backupState == null
                       ? 'Open backup center'
                       : 'Last: ${BackupFormatters.formatDateTime(backupState.lastBackupAt)}',
                 ),
-                trailing: const Icon(Icons.chevron_right),
+                trailing: const Icon(AppIcons.chevron),
                 onTap: () => Navigator.of(context).pushNamed(AppRoutes.backup),
               ),
               ListTile(
-                leading: const Icon(Icons.cloud_download_outlined),
+                leading: const _LeadingIcon(icon: AppIcons.restore),
                 title: const Text('Restore Backup'),
                 subtitle: const Text('Replace local database from Drive'),
-                trailing: const Icon(Icons.chevron_right),
+                trailing: const Icon(AppIcons.chevron),
                 onTap: () =>
                     Navigator.of(context).pushNamed(AppRoutes.restoreBackup),
               ),
               ListTile(
-                leading: const Icon(Icons.settings_backup_restore_outlined),
+                leading: const _LeadingIcon(icon: AppIcons.settings),
                 title: const Text('Backup Center'),
                 subtitle: const Text('Full backup & restore options'),
-                trailing: const Icon(Icons.chevron_right),
+                trailing: const Icon(AppIcons.chevron),
                 onTap: () => Navigator.of(context).pushNamed(AppRoutes.backup),
               ),
             ],
           ),
         ],
       ),
+    );
+  }
+}
+
+class _LeadingIcon extends StatelessWidget {
+  const _LeadingIcon({required this.icon, this.color});
+
+  final IconData icon;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = color ?? Theme.of(context).colorScheme.primary;
+    return Container(
+      width: 40,
+      height: 40,
+      decoration: BoxDecoration(
+        color: accent.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Icon(icon, color: accent, size: AppSpacing.iconSize),
     );
   }
 }
@@ -293,37 +406,15 @@ class _ThemeOptionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return ListTile(
-      leading: Icon(icon),
+      leading: _LeadingIcon(icon: icon),
       title: Text(title),
-      trailing: selected
-          ? Icon(
-              Icons.check_circle,
-              color: Theme.of(context).colorScheme.primary,
-            )
-          : const Icon(Icons.circle_outlined),
-      onTap: onTap,
-    );
-  }
-}
-
-class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({required this.title});
-
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(left: 4, bottom: 8),
-      child: Text(
-        title.toUpperCase(),
-        style: Theme.of(context).textTheme.labelLarge?.copyWith(
-              color: Theme.of(context).colorScheme.primary,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.8,
-            ),
+      trailing: Icon(
+        selected ? Icons.check_circle_rounded : Icons.circle_outlined,
+        color: selected ? scheme.primary : scheme.outline,
       ),
+      onTap: onTap,
     );
   }
 }
@@ -335,8 +426,8 @@ class _SettingsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      clipBehavior: Clip.antiAlias,
+    return PremiumCard(
+      padding: EdgeInsets.zero,
       child: Column(
         children: [
           for (var i = 0; i < children.length; i++) ...[

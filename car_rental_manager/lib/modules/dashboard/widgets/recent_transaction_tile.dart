@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_icons.dart';
+import '../../../core/theme/app_spacing.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../models/recent_transaction.dart';
 
@@ -22,25 +25,29 @@ class RecentTransactionTile extends StatelessWidget {
     final method = transaction.paymentMethod?.trim();
 
     return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      contentPadding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.lg,
+        vertical: AppSpacing.sm,
+      ),
       onTap: onTap,
       leading: CircleAvatar(
-        backgroundColor: colorScheme.tertiaryContainer,
-        foregroundColor: colorScheme.onTertiaryContainer,
-        child: const Icon(Icons.payments_outlined),
+        backgroundColor: AppColors.received.withValues(alpha: 0.12),
+        foregroundColor: AppColors.received,
+        child: const Icon(AppIcons.payments, size: 20),
       ),
       title: Text(
         transaction.customerName,
-        style: const TextStyle(fontWeight: FontWeight.w600),
+        style: const TextStyle(fontWeight: FontWeight.w700),
       ),
       subtitle: Text(
         method == null || method.isEmpty ? dateLabel : '$dateLabel · $method',
+        style: TextStyle(color: colorScheme.onSurfaceVariant),
       ),
       trailing: Text(
         CurrencyFormatter.format(transaction.amount),
-        style: TextStyle(
-          fontWeight: FontWeight.w700,
-          color: colorScheme.primary,
+        style: const TextStyle(
+          fontWeight: FontWeight.w800,
+          color: AppColors.received,
         ),
       ),
     );

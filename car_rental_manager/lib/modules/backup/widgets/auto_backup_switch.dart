@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/theme/app_icons.dart';
+import '../../../core/widgets/premium_card.dart';
+
 class AutoBackupSwitch extends StatelessWidget {
   const AutoBackupSwitch({
     super.key,
@@ -18,11 +21,22 @@ class AutoBackupSwitch extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
+    final scheme = Theme.of(context).colorScheme;
+
+    return PremiumCard(
+      padding: EdgeInsets.zero,
       child: Column(
         children: [
           SwitchListTile(
-            secondary: const Icon(Icons.schedule_outlined),
+            secondary: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: scheme.primary.withValues(alpha: 0.10),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(AppIcons.calendar, color: scheme.primary),
+            ),
             title: const Text('Automatic daily backup'),
             subtitle: const Text('Runs once a day when signed in'),
             value: enabled,
@@ -31,10 +45,18 @@ class AutoBackupSwitch extends StatelessWidget {
           const Divider(height: 1),
           ListTile(
             enabled: enabled && enabledControls,
-            leading: const Icon(Icons.access_time),
+            leading: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: scheme.primary.withValues(alpha: 0.10),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(AppIcons.today, color: scheme.primary),
+            ),
             title: const Text('Backup time'),
             subtitle: Text(timeLabel),
-            trailing: const Icon(Icons.chevron_right),
+            trailing: const Icon(AppIcons.chevron),
             onTap: enabled && enabledControls ? onPickTime : null,
           ),
         ],

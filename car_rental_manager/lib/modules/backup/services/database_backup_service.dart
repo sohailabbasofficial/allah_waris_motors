@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite/sqflite.dart';
 
+import '../../../core/constants/app_constants.dart';
 import '../../../core/database/database_helper.dart';
 
 class DatabaseValidationException implements Exception {
@@ -48,6 +49,18 @@ class DatabaseBackupService {
     return '${stat.modified.millisecondsSinceEpoch}:${stat.size}';
   }
 
+  /// Number of customers in the live database (0 after fresh install).
+  Future<int> customerCount() async {
+    if (kIsWeb) return 0;
+    try {
+      final db = await _helper.database;
+      final rows = await db.rawQuery('SELECT COUNT(*) AS c FROM customers');
+      return Sqflite.firstIntValue(rows) ?? 0;
+    } catch (_) {
+      return 0;
+    }
+  }
+
   Future<Map<String, Object?>> exportSettingsMap() async {
     final keys = _prefs.getKeys();
     final map = <String, Object?>{};
@@ -62,6 +75,18 @@ class DatabaseBackupService {
     return utf8.encode(jsonEncode(map));
   }
 
+  /// Keys that must stay on-device after restore (auth / restore safety).
+  static const _protectedPrefKeys = <String>{
+    AppConstants.keyAuthorizedGoogleSignedIn,
+    AppConstants.keyGoogleAccountEmail,
+    AppConstants.keyGoogleAccountDisplayName,
+    AppConstants.keyPinHash,
+    AppConstants.keyBiometricEnabled,
+    AppConstants.keyFailedPinAttempts,
+    AppConstants.keyPinLockUntil,
+    AppConstants.keyLastRestoreAt,
+  };
+
   Future<void> importSettingsBytes(List<int> bytes) async {
     final decoded = jsonDecode(utf8.decode(bytes));
     if (decoded is! Map) {
@@ -69,6 +94,7 @@ class DatabaseBackupService {
     }
     for (final entry in decoded.entries) {
       final key = entry.key.toString();
+      if (_protectedPrefKeys.contains(key)) continue;
       final value = entry.value;
       if (value is bool) {
         await _prefs.setBool(key, value);
@@ -88,7 +114,7 @@ class DatabaseBackupService {
   }
 
   /// Validates that [bytes] form a readable SQLite DB with required tables.
-  Future<void> validateDatabaseBytes(List<int> bytes) async {
+  Future<int> validateDatabaseBytes(List<int> bytes) async {
     if (bytes.length < 16) {
       throw DatabaseValidationException('Backup file is empty or corrupted.');
     }
@@ -114,13 +140,16 @@ class DatabaseBackupService {
         "SELECT name FROM sqlite_master WHERE type='table'",
       );
       final names = tables.map((e) => e['name'] as String).toSet();
-      const required = {'customers', 'transactions', 'payments'};
+      const required = {'customers', 'transactions', 'payments', 'settings'};
       final missing = required.difference(names);
       if (missing.isNotEmpty) {
         throw DatabaseValidationException(
           'Backup is missing tables: ${missing.join(', ')}',
         );
       }
+      final countRows =
+          await db.rawQuery('SELECT COUNT(*) AS c FROM customers');
+      return Sqflite.firstIntValue(countRows) ?? 0;
     } finally {
       await db?.close();
       if (await tempFile.exists()) {
@@ -129,9 +158,19 @@ class DatabaseBackupService {
     }
   }
 
+  Future<void> _deleteSqliteSidecars(String livePath) async {
+    for (final suffix in const ['-wal', '-shm', '-journal']) {
+      final sidecar = File('$livePath$suffix');
+      if (await sidecar.exists()) {
+        await sidecar.delete();
+      }
+    }
+  }
+
   /// Replaces the live database with [bytes] after validation.
-  Future<void> restoreDatabaseBytes(List<int> bytes) async {
-    await validateDatabaseBytes(bytes);
+  /// Returns the customer count from the restored backup.
+  Future<int> restoreDatabaseBytes(List<int> bytes) async {
+    final expectedCustomers = await validateDatabaseBytes(bytes);
 
     final livePath = await _helper.databaseFilePath;
     final liveFile = File(livePath);
@@ -143,7 +182,9 @@ class DatabaseBackupService {
     final staging = File(stagingPath);
     await staging.writeAsBytes(bytes, flush: true);
 
+    // Close DB first so WAL is flushed / released.
     await _helper.close();
+    await _deleteSqliteSidecars(livePath);
 
     final backupPath = '$livePath.bak';
     if (await liveFile.exists()) {
@@ -154,18 +195,33 @@ class DatabaseBackupService {
       if (await liveFile.exists()) {
         await liveFile.delete();
       }
+      await _deleteSqliteSidecars(livePath);
       await staging.copy(livePath);
+      await _deleteSqliteSidecars(livePath);
       await _helper.reopen();
+
+      final restoredCount = await customerCount();
+      if (expectedCustomers > 0 && restoredCount == 0) {
+        throw DatabaseValidationException(
+          'Restore completed but no customers were loaded. '
+          'Try again or pick a different backup.',
+        );
+      }
+      return restoredCount;
     } catch (e) {
       // Attempt rollback.
       final rollback = File(backupPath);
       if (await rollback.exists()) {
+        await _helper.close();
+        await _deleteSqliteSidecars(livePath);
         if (await liveFile.exists()) {
           await liveFile.delete();
         }
         await rollback.copy(livePath);
+        await _deleteSqliteSidecars(livePath);
         await _helper.reopen();
       }
+      if (e is DatabaseValidationException) rethrow;
       throw DatabaseValidationException('Restore failed: $e');
     } finally {
       if (await staging.exists()) {

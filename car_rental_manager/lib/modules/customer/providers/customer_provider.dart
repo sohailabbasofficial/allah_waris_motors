@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../providers/database_provider.dart';
+import '../../backup/providers/data_change_bus.dart';
 import '../../dashboard/providers/dashboard_provider.dart';
 import '../models/customer_model.dart';
 import '../models/customer_state.dart';
@@ -83,6 +84,7 @@ class CustomerListNotifier extends AsyncNotifier<CustomerState> {
   Future<void> _reloadRelated() async {
     await refresh();
     await ref.read(dashboardProvider.notifier).refresh();
+    ref.read(dataChangeBusProvider.notifier).markDirty();
   }
 }
 

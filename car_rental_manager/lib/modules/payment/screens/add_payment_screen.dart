@@ -2,7 +2,11 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/theme/app_icons.dart';
+import '../../../core/theme/app_spacing.dart';
+import '../../../core/widgets/premium_card.dart';
 import '../../customer/providers/customer_provider.dart';
+import '../../transaction/providers/transaction_provider.dart';
 import '../providers/payment_provider.dart';
 import '../repository/payment_repository.dart';
 import '../widgets/payment_form.dart';
@@ -22,6 +26,7 @@ class _AddPaymentScreenState extends ConsumerState<AddPaymentScreen> {
   final _notesController = TextEditingController();
 
   int? _customerId;
+  int? _transactionId;
   DateTime? _date = DateTime.now();
   String _customerSearch = '';
   bool _saving = false;
@@ -51,9 +56,9 @@ class _AddPaymentScreenState extends ConsumerState<AddPaymentScreen> {
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
-    if (_customerId == null || _date == null) {
+    if (_transactionId == null || _date == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Customer and date are required')),
+        const SnackBar(content: Text('Transaction and date are required')),
       );
       return;
     }
@@ -70,7 +75,7 @@ class _AddPaymentScreenState extends ConsumerState<AddPaymentScreen> {
     setState(() => _saving = true);
     try {
       await ref.read(paymentListProvider.notifier).add(
-            customerId: _customerId!,
+            transactionId: _transactionId!,
             paymentDate: _date!,
             paymentAmount: double.parse(_amountController.text.trim()),
             notes: _notesController.text,
@@ -99,31 +104,52 @@ class _AddPaymentScreenState extends ConsumerState<AddPaymentScreen> {
   Widget build(BuildContext context) {
     final customers =
         ref.watch(customerListProvider).valueOrNull?.customers ?? [];
-    final balanceAsync = _customerId == null
+    final openTxAsync = _customerId == null
         ? null
-        : ref.watch(customerAvailableBalanceProvider(_customerId!));
+        : ref.watch(openTransactionsProvider(_customerId!));
+    final transactions = openTxAsync?.valueOrNull ?? [];
+    final balanceAsync = _transactionId == null
+        ? null
+        : ref.watch(transactionAvailableBalanceProvider(_transactionId!));
     final available = balanceAsync?.valueOrNull ?? 0;
+    final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Add Payment')),
       body: ListView(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(AppSpacing.xl),
         children: [
           if (customers.isEmpty)
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Text(
-                  'No customers found. Add a customer first.',
-                  style: TextStyle(color: Theme.of(context).colorScheme.error),
-                ),
+            PremiumCard(
+              color: scheme.errorContainer.withValues(alpha: 0.45),
+              child: Row(
+                children: [
+                  Icon(AppIcons.warning, color: scheme.error),
+                  const SizedBox(width: AppSpacing.md),
+                  Expanded(
+                    child: Text(
+                      'No customers found. Add a customer first.',
+                      style: TextStyle(
+                        color: scheme.error,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
+          if (customers.isEmpty) const SizedBox(height: AppSpacing.lg),
           PaymentForm(
             formKey: _formKey,
             customers: customers,
             selectedCustomerId: _customerId,
-            onCustomerChanged: (id) => setState(() => _customerId = id),
+            onCustomerChanged: (id) => setState(() {
+              _customerId = id;
+              _transactionId = null;
+            }),
+            transactions: transactions,
+            selectedTransactionId: _transactionId,
+            onTransactionChanged: (id) => setState(() => _transactionId = id),
             date: _date,
             onPickDate: _pickDate,
             amountController: _amountController,
@@ -135,7 +161,31 @@ class _AddPaymentScreenState extends ConsumerState<AddPaymentScreen> {
             onCustomerSearchChanged: (value) =>
                 setState(() => _customerSearch = value),
           ),
-          const SizedBox(height: 28),
+          if (_customerId != null &&
+              openTxAsync?.hasValue == true &&
+              transactions.isEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: AppSpacing.md),
+              child: PremiumCard(
+                color: scheme.errorContainer.withValues(alpha: 0.35),
+                child: Row(
+                  children: [
+                    Icon(AppIcons.info, color: scheme.error),
+                    const SizedBox(width: AppSpacing.md),
+                    Expanded(
+                      child: Text(
+                        'This customer has no open transactions to pay against.',
+                        style: TextStyle(
+                          color: scheme.error,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          const SizedBox(height: AppSpacing.xxxl),
           Row(
             children: [
               Expanded(
@@ -144,17 +194,17 @@ class _AddPaymentScreenState extends ConsumerState<AddPaymentScreen> {
                   child: const Text('Cancel'),
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: AppSpacing.md),
               Expanded(
                 child: FilledButton.icon(
-                  onPressed: _saving || customers.isEmpty ? null : _save,
+                  onPressed: _saving || transactions.isEmpty ? null : _save,
                   icon: _saving
                       ? const SizedBox(
                           width: 18,
                           height: 18,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Icon(Icons.save_outlined),
+                      : const Icon(AppIcons.save),
                   label: Text(_saving ? 'Saving...' : 'Save'),
                 ),
               ),

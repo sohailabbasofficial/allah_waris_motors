@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/theme/app_icons.dart';
+import '../../../core/theme/app_spacing.dart';
 import '../../customer/models/customer_model.dart';
 import '../services/transaction_validation_service.dart';
 import 'amount_summary_card.dart';
@@ -48,6 +50,7 @@ class TransactionForm extends StatelessWidget {
     final dateLabel = date == null
         ? 'Select date'
         : DateFormat('dd MMM yyyy').format(date!);
+    final scheme = Theme.of(context).colorScheme;
 
     return Form(
       key: formKey,
@@ -59,7 +62,7 @@ class TransactionForm extends StatelessWidget {
             value: selectedCustomerId,
             decoration: const InputDecoration(
               labelText: 'Customer *',
-              prefixIcon: Icon(Icons.person_outline),
+              prefixIcon: Icon(AppIcons.customer),
             ),
             items: customers
                 .map(
@@ -73,26 +76,41 @@ class TransactionForm extends StatelessWidget {
             validator: (_) =>
                 TransactionValidationService.validateCustomer(selectedCustomerId),
           ),
-          const SizedBox(height: 16),
-          InkWell(
-            onTap: enabled ? onPickDate : null,
-            borderRadius: BorderRadius.circular(12),
-            child: InputDecorator(
-              decoration: InputDecoration(
-                labelText: 'Date *',
-                prefixIcon: const Icon(Icons.calendar_month_outlined),
-                errorText: TransactionValidationService.validateDate(date),
+          const SizedBox(height: AppSpacing.lg),
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: enabled ? onPickDate : null,
+              borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+              child: InputDecorator(
+                decoration: InputDecoration(
+                  labelText: 'Date *',
+                  prefixIcon: const Icon(AppIcons.calendar),
+                  suffixIcon: Icon(
+                    AppIcons.chevron,
+                    color: scheme.onSurfaceVariant,
+                  ),
+                  errorText: TransactionValidationService.validateDate(date),
+                ),
+                child: Text(
+                  dateLabel,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: date == null
+                        ? scheme.onSurfaceVariant
+                        : scheme.onSurface,
+                  ),
+                ),
               ),
-              child: Text(dateLabel),
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.lg),
           DropdownButtonFormField<String>(
             // ignore: deprecated_member_use
             value: description,
             decoration: const InputDecoration(
               labelText: 'Description *',
-              prefixIcon: Icon(Icons.category_outlined),
+              prefixIcon: Icon(AppIcons.transactions),
             ),
             items: TransactionValidationService.descriptions
                 .map(
@@ -105,7 +123,7 @@ class TransactionForm extends StatelessWidget {
             onChanged: enabled ? onDescriptionChanged : null,
             validator: TransactionValidationService.validateDescription,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.lg),
           TextFormField(
             controller: totalController,
             enabled: enabled,
@@ -115,11 +133,11 @@ class TransactionForm extends StatelessWidget {
             ],
             decoration: const InputDecoration(
               labelText: 'Total Amount *',
-              prefixIcon: Icon(Icons.payments_outlined),
+              prefixIcon: Icon(AppIcons.money),
             ),
             validator: TransactionValidationService.validateTotalAmount,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.lg),
           TextFormField(
             controller: receivedController,
             enabled: enabled,
@@ -129,7 +147,7 @@ class TransactionForm extends StatelessWidget {
             ],
             decoration: const InputDecoration(
               labelText: 'Received Amount *',
-              prefixIcon: Icon(Icons.south_west_rounded),
+              prefixIcon: Icon(AppIcons.received),
             ),
             validator: (value) =>
                 TransactionValidationService.validateReceivedAmount(
@@ -137,27 +155,28 @@ class TransactionForm extends StatelessWidget {
               totalController.text,
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.lg),
           InputDecorator(
             decoration: const InputDecoration(
               labelText: 'Remaining Amount',
-              prefixIcon: Icon(Icons.lock_outline),
+              prefixIcon: Icon(AppIcons.remaining),
               helperText: 'Auto-calculated (Total - Received)',
             ),
             child: Text(
               remainingAmount.toStringAsFixed(2),
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.2,
                   ),
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.md),
           AmountSummaryCard(
             totalAmount: total,
             receivedAmount: received,
             remainingAmount: remainingAmount,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.lg),
           TextFormField(
             controller: notesController,
             enabled: enabled,
@@ -166,7 +185,7 @@ class TransactionForm extends StatelessWidget {
             decoration: const InputDecoration(
               labelText: 'Notes (optional)',
               alignLabelWithHint: true,
-              prefixIcon: Icon(Icons.notes_outlined),
+              prefixIcon: Icon(AppIcons.notes),
             ),
           ),
         ],

@@ -2,10 +2,18 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/auth/authorized_google_account.dart';
+import '../../../core/theme/app_icons.dart';
+import '../../../core/theme/app_spacing.dart';
+import '../../../core/widgets/app_states.dart';
+import '../../../core/widgets/premium_card.dart';
+import '../../../core/widgets/section_header.dart';
 import '../../../routes/app_routes.dart';
 import '../models/backup_file_info.dart';
 import '../providers/backup_provider.dart';
+import '../services/google_drive_service.dart';
 import '../widgets/backup_history_tile.dart';
+import '../widgets/recover_cloud_data_button.dart';
 import '../widgets/restore_dialog.dart';
 
 class RestoreScreen extends ConsumerStatefulWidget {
@@ -26,9 +34,34 @@ class _RestoreScreenState extends ConsumerState<RestoreScreen> {
     });
   }
 
+  Future<void> _showAccessDenied() {
+    return showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Access Denied'),
+        content: Text(AuthorizedGoogleAccount.accessDeniedMessage),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _load() async {
     try {
       await ref.read(backupProvider.notifier).loadRemoteBackups();
+    } on GoogleAuthException catch (e) {
+      if (!mounted) return;
+      if (e.isAccessDenied) {
+        await _showAccessDenied();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.message)),
+        );
+      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -48,13 +81,24 @@ class _RestoreScreenState extends ConsumerState<RestoreScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Restore successful. Reloading application data…'),
+          content: Text(
+            'Restore successful. Your customers and ledger are reloading…',
+          ),
         ),
       );
       Navigator.of(context).pushNamedAndRemoveUntil(
         AppRoutes.home,
         (route) => false,
       );
+    } on GoogleAuthException catch (e) {
+      if (!mounted) return;
+      if (e.isAccessDenied) {
+        await _showAccessDenied();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Restore failed: ${e.message}')),
+        );
+      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -74,7 +118,7 @@ class _RestoreScreenState extends ConsumerState<RestoreScreen> {
           IconButton(
             tooltip: 'Refresh',
             onPressed: backupAsync.valueOrNull?.isBusy == true ? null : _load,
-            icon: const Icon(Icons.refresh_rounded),
+            icon: const Icon(AppIcons.refresh),
           ),
         ],
       ),
@@ -82,38 +126,44 @@ class _RestoreScreenState extends ConsumerState<RestoreScreen> {
         onPressed: _selected == null || backupAsync.valueOrNull?.isBusy == true
             ? null
             : _restore,
-        icon: const Icon(Icons.restore),
+        icon: const Icon(AppIcons.restore),
         label: const Text('Restore'),
       ),
       body: backupAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('$e')),
+        loading: () => const AppLoading(label: 'Loading backups…'),
+        error: (e, _) => AppErrorState(
+          title: 'Could not load backups',
+          message: e.toString(),
+          onRetry: _load,
+        ),
         data: (state) {
           if (kIsWeb) {
-            return const Center(
-              child: Padding(
-                padding: EdgeInsets.all(24),
-                child: Text(
-                  'Restore is not available on web.',
-                  textAlign: TextAlign.center,
-                ),
-              ),
+            return const AppEmptyState(
+              icon: AppIcons.info,
+              title: 'Not available on web',
+              message: 'Restore is not available on web.',
             );
           }
 
           if (!state.isSignedIn) {
             return Center(
               child: Padding(
-                padding: const EdgeInsets.all(24),
+                padding: const EdgeInsets.all(AppSpacing.xxl),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text('Connect Google Drive to list backups.'),
-                    const SizedBox(height: 12),
-                    FilledButton(
+                    const AppEmptyState(
+                      icon: AppIcons.backup,
+                      title: 'Connect Google Drive',
+                      message: 'Sign in to list available backup files.',
+                      compact: true,
+                    ),
+                    const SizedBox(height: AppSpacing.lg),
+                    FilledButton.icon(
                       onPressed: () => Navigator.of(context)
                           .pushNamed(AppRoutes.googleSignIn),
-                      child: const Text('Connect Google'),
+                      icon: const Icon(Icons.login_rounded),
+                      label: const Text('Connect Google'),
                     ),
                   ],
                 ),
@@ -122,48 +172,46 @@ class _RestoreScreenState extends ConsumerState<RestoreScreen> {
           }
 
           if (state.isBusy && state.availableBackups.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const CircularProgressIndicator(),
-                  const SizedBox(height: 16),
-                  Text(state.progressMessage ?? 'Loading backups…'),
-                ],
-              ),
+            return AppLoading(
+              label: state.progressMessage ?? 'Loading backups…',
             );
           }
 
           if (state.availableBackups.isEmpty) {
-            return const Center(
-              child: Padding(
-                padding: EdgeInsets.all(24),
-                child: Text(
-                  'No backup files found in Google Drive.\nCreate a backup first.',
-                  textAlign: TextAlign.center,
-                ),
-              ),
+            return const AppEmptyState(
+              icon: AppIcons.backup,
+              title: 'No backups found',
+              message:
+                  'No backup files found in Google Drive. Create a backup first.',
             );
           }
 
           return ListView(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.pagePadding,
+              AppSpacing.pagePadding,
+              AppSpacing.pagePadding,
+              96,
+            ),
             children: [
               if (state.progressMessage != null && state.isBusy)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: Card(
-                    child: ListTile(
-                      leading: const CircularProgressIndicator(),
-                      title: Text(state.progressMessage!),
-                    ),
+                PremiumCard(
+                  margin: const EdgeInsets.only(bottom: AppSpacing.md),
+                  child: Row(
+                    children: [
+                      const SizedBox(
+                        width: 28,
+                        height: 28,
+                        child: CircularProgressIndicator(strokeWidth: 3),
+                      ),
+                      const SizedBox(width: AppSpacing.md),
+                      Expanded(child: Text(state.progressMessage!)),
+                    ],
                   ),
                 ),
-              Text(
-                'Select a backup to restore',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 8),
+              const RecoverCloudDataButton(emphasized: true),
+              const SizedBox(height: AppSpacing.xl),
+              const SectionHeader(title: 'Or pick a backup manually'),
               ...state.availableBackups.map(
                 (file) => BackupHistoryTile(
                   file: file,

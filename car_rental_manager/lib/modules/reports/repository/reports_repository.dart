@@ -32,7 +32,7 @@ class ReportsRepository {
         COALESCE(SUM(received_amount), 0) AS tx_received,
         COALESCE(SUM(remaining_amount), 0) AS remaining_balance
       FROM transactions
-      WHERE date(date) = date(?)
+      WHERE date(transaction_date) = date(?)
       ''',
       [day],
     );
@@ -49,9 +49,12 @@ class ReportsRepository {
     final customersAgg = await db.rawQuery(
       '''
       SELECT COUNT(*) AS served FROM (
-        SELECT customer_id FROM transactions WHERE date(date) = date(?)
+        SELECT customer_id FROM transactions WHERE date(transaction_date) = date(?)
         UNION
-        SELECT customer_id FROM payments WHERE date(payment_date) = date(?)
+        SELECT t.customer_id
+        FROM payments p
+        INNER JOIN transactions t ON t.id = p.transaction_id
+        WHERE date(p.payment_date) = date(?)
       )
       ''',
       [day, day],
@@ -63,7 +66,7 @@ class ReportsRepository {
         t.id AS id,
         t.customer_id AS customer_id,
         c.name AS customer_name,
-        t.date AS date,
+        t.transaction_date AS date,
         t.description AS description,
         t.total_amount AS total_amount,
         t.received_amount AS received_amount,
@@ -71,8 +74,8 @@ class ReportsRepository {
         t.notes AS notes
       FROM transactions t
       INNER JOIN customers c ON c.id = t.customer_id
-      WHERE date(t.date) = date(?)
-      ORDER BY datetime(t.date) ASC, datetime(t.created_at) ASC, t.id ASC
+      WHERE date(t.transaction_date) = date(?)
+      ORDER BY datetime(t.transaction_date) ASC, datetime(t.created_at) ASC, t.id ASC
       ''',
       [day],
     );
@@ -109,7 +112,7 @@ class ReportsRepository {
         COALESCE(SUM(total_amount), 0) AS total_revenue,
         COALESCE(SUM(received_amount), 0) AS tx_received
       FROM transactions
-      WHERE date(date) >= date(?) AND date(date) < date(?)
+      WHERE date(transaction_date) >= date(?) AND date(transaction_date) < date(?)
       ''',
       [startKey, endKey],
     );
@@ -125,8 +128,8 @@ class ReportsRepository {
 
     final outstanding = await db.rawQuery(
       '''
-      SELECT COALESCE(SUM(remaining_balance), 0) AS outstanding
-      FROM customers
+      SELECT COALESCE(SUM(remaining_amount), 0) AS outstanding
+      FROM transactions
       ''',
     );
 
@@ -145,7 +148,7 @@ class ReportsRepository {
         t.id AS id,
         t.customer_id AS customer_id,
         c.name AS customer_name,
-        t.date AS date,
+        t.transaction_date AS date,
         t.description AS description,
         t.total_amount AS total_amount,
         t.received_amount AS received_amount,
@@ -153,8 +156,8 @@ class ReportsRepository {
         t.notes AS notes
       FROM transactions t
       INNER JOIN customers c ON c.id = t.customer_id
-      WHERE date(t.date) >= date(?) AND date(t.date) < date(?)
-      ORDER BY datetime(t.date) ASC, datetime(t.created_at) ASC, t.id ASC
+      WHERE date(t.transaction_date) >= date(?) AND date(t.transaction_date) < date(?)
+      ORDER BY datetime(t.transaction_date) ASC, datetime(t.created_at) ASC, t.id ASC
       ''',
       [startKey, endKey],
     );
@@ -182,11 +185,23 @@ class ReportsRepository {
     final db = await _dbOrNull;
     if (db == null) return null;
 
-    final customerRows = await db.query(
-      'customers',
-      where: 'id = ?',
-      whereArgs: [customerId],
-      limit: 1,
+    final customerRows = await db.rawQuery(
+      '''
+      SELECT
+        c.*,
+        COALESCE((SELECT SUM(total_amount) FROM transactions WHERE customer_id = c.id), 0) AS total_udhaar,
+        COALESCE((SELECT SUM(received_amount) FROM transactions WHERE customer_id = c.id), 0)
+        + COALESCE((
+            SELECT SUM(p.payment_amount) FROM payments p
+            INNER JOIN transactions t ON t.id = p.transaction_id
+            WHERE t.customer_id = c.id
+          ), 0) AS total_received,
+        COALESCE((SELECT SUM(remaining_amount) FROM transactions WHERE customer_id = c.id), 0) AS remaining_balance
+      FROM customers c
+      WHERE c.id = ?
+      LIMIT 1
+      ''',
+      [customerId],
     );
     if (customerRows.isEmpty) return null;
 
@@ -196,22 +211,26 @@ class ReportsRepository {
       'transactions',
       where: 'customer_id = ?',
       whereArgs: [customerId],
-      orderBy: 'datetime(date) ASC, datetime(created_at) ASC, id ASC',
+      orderBy:
+          'datetime(transaction_date) ASC, datetime(created_at) ASC, id ASC',
     );
 
-    final payRows = await db.query(
-      'payments',
-      where: 'customer_id = ?',
-      whereArgs: [customerId],
-      orderBy:
-          'datetime(payment_date) ASC, datetime(created_at) ASC, id ASC',
+    final payRows = await db.rawQuery(
+      '''
+      SELECT p.*
+      FROM payments p
+      INNER JOIN transactions t ON t.id = p.transaction_id
+      WHERE t.customer_id = ?
+      ORDER BY datetime(p.payment_date) ASC, datetime(p.created_at) ASC, p.id ASC
+      ''',
+      [customerId],
     );
 
     final draft = <_LedgerDraft>[];
 
     for (final row in txRows) {
       final date =
-          DateTime.tryParse((row['date'] as String?) ?? '') ?? DateTime.now();
+          DateTime.tryParse((row['transaction_date'] as String?) ?? '') ?? DateTime.now();
       final total = (row['total_amount'] as num?)?.toDouble() ?? 0;
       final received = (row['received_amount'] as num?)?.toDouble() ?? 0;
       final description = (row['description'] as String?) ?? 'Transaction';
@@ -305,32 +324,49 @@ class ReportsRepository {
 
     final q = query.trim();
     final rows = q.isEmpty
-        ? await db.query(
-            'customers',
-            columns: [
-              'id',
-              'name',
-              'phone',
-              'total_udhaar',
-              'total_received',
-              'remaining_balance',
-            ],
-            where: 'remaining_balance > 0',
-            orderBy: orderBy,
+        ? await db.rawQuery(
+            '''
+            SELECT * FROM (
+              SELECT
+                c.id AS id,
+                c.name AS name,
+                c.phone AS phone,
+                COALESCE((SELECT SUM(total_amount) FROM transactions WHERE customer_id = c.id), 0) AS total_udhaar,
+                COALESCE((SELECT SUM(received_amount) FROM transactions WHERE customer_id = c.id), 0)
+                + COALESCE((
+                    SELECT SUM(p.payment_amount) FROM payments p
+                    INNER JOIN transactions t ON t.id = p.transaction_id
+                    WHERE t.customer_id = c.id
+                  ), 0) AS total_received,
+                COALESCE((SELECT SUM(remaining_amount) FROM transactions WHERE customer_id = c.id), 0) AS remaining_balance
+              FROM customers c
+            )
+            WHERE remaining_balance > 0
+            ORDER BY $orderBy
+            ''',
           )
-        : await db.query(
-            'customers',
-            columns: [
-              'id',
-              'name',
-              'phone',
-              'total_udhaar',
-              'total_received',
-              'remaining_balance',
-            ],
-            where: 'remaining_balance > 0 AND name LIKE ?',
-            whereArgs: ['%$q%'],
-            orderBy: orderBy,
+        : await db.rawQuery(
+            '''
+            SELECT * FROM (
+              SELECT
+                c.id AS id,
+                c.name AS name,
+                c.phone AS phone,
+                COALESCE((SELECT SUM(total_amount) FROM transactions WHERE customer_id = c.id), 0) AS total_udhaar,
+                COALESCE((SELECT SUM(received_amount) FROM transactions WHERE customer_id = c.id), 0)
+                + COALESCE((
+                    SELECT SUM(p.payment_amount) FROM payments p
+                    INNER JOIN transactions t ON t.id = p.transaction_id
+                    WHERE t.customer_id = c.id
+                  ), 0) AS total_received,
+                COALESCE((SELECT SUM(remaining_amount) FROM transactions WHERE customer_id = c.id), 0) AS remaining_balance
+              FROM customers c
+              WHERE c.name LIKE ?
+            )
+            WHERE remaining_balance > 0
+            ORDER BY $orderBy
+            ''',
+            ['%$q%'],
           );
 
     return rows.map(OutstandingCustomer.fromMap).toList();

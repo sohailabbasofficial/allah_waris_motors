@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_icons.dart';
+import '../../../core/theme/app_spacing.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../models/recent_customer.dart';
 
@@ -19,21 +22,37 @@ class RecentCustomerTile extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      contentPadding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.lg,
+        vertical: AppSpacing.sm,
+      ),
       leading: CircleAvatar(
-        backgroundColor: colorScheme.primaryContainer,
-        foregroundColor: colorScheme.onPrimaryContainer,
+        backgroundColor: colorScheme.primary.withValues(alpha: 0.12),
+        foregroundColor: colorScheme.primary,
         child: Text(
           customer.name.isNotEmpty ? customer.name[0].toUpperCase() : '?',
-          style: const TextStyle(fontWeight: FontWeight.bold),
+          style: const TextStyle(fontWeight: FontWeight.w800),
         ),
       ),
       title: Text(
         customer.name,
-        style: const TextStyle(fontWeight: FontWeight.w600),
+        style: const TextStyle(fontWeight: FontWeight.w700),
       ),
-      subtitle: Text(
-        customer.phone.isEmpty ? 'No phone' : customer.phone,
+      subtitle: Row(
+        children: [
+          Icon(
+            AppIcons.phone,
+            size: 14,
+            color: colorScheme.onSurfaceVariant,
+          ),
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text(
+              customer.phone.isEmpty ? 'No phone' : customer.phone,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
       ),
       trailing: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 120),
@@ -46,9 +65,9 @@ class RecentCustomerTile extends StatelessWidget {
               CurrencyFormatter.format(customer.remainingBalance),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-                color: colorScheme.error,
+              style: const TextStyle(
+                fontWeight: FontWeight.w800,
+                color: AppColors.remaining,
                 fontSize: 13,
               ),
             ),
@@ -60,11 +79,12 @@ class RecentCustomerTile extends StatelessWidget {
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 minimumSize: Size.zero,
               ),
-              child: const Text('View Details'),
+              child: const Text('View'),
             ),
           ],
         ),
       ),
+      onTap: onViewDetails,
     );
   }
 }

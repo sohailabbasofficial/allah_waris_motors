@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/theme/app_icons.dart';
+import '../../../core/theme/app_spacing.dart';
+import '../../../core/widgets/app_states.dart';
 import '../../customer/providers/customer_provider.dart';
 import '../models/transaction_model.dart';
 import '../providers/transaction_provider.dart';
@@ -125,12 +128,17 @@ class _EditTransactionScreenState
     return Scaffold(
       appBar: AppBar(title: const Text('Edit Transaction')),
       body: txAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text(e.toString())),
+        loading: () => const AppLoading(label: 'Loading transaction…'),
+        error: (e, _) => AppErrorState(
+          title: 'Could not load transaction',
+          message: e.toString(),
+          onRetry: () =>
+              ref.invalidate(transactionDetailProvider(widget.transactionId)),
+        ),
         data: (tx) {
           _fill(tx);
           return ListView(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(AppSpacing.xl),
             children: [
               TransactionForm(
                 formKey: _formKey,
@@ -148,7 +156,7 @@ class _EditTransactionScreenState
                 remainingAmount: _remaining,
                 enabled: !_saving,
               ),
-              const SizedBox(height: 28),
+              const SizedBox(height: AppSpacing.xxxl),
               Row(
                 children: [
                   Expanded(
@@ -158,7 +166,7 @@ class _EditTransactionScreenState
                       child: const Text('Cancel'),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: AppSpacing.md),
                   Expanded(
                     child: FilledButton.icon(
                       onPressed: _saving ? null : _save,
@@ -168,7 +176,7 @@ class _EditTransactionScreenState
                               height: 18,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
-                          : const Icon(Icons.save_outlined),
+                          : const Icon(AppIcons.save),
                       label: Text(_saving ? 'Saving...' : 'Save'),
                     ),
                   ),

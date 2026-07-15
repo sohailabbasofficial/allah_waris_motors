@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_icons.dart';
+import '../../../core/theme/app_spacing.dart';
 import '../../../core/utils/currency_formatter.dart';
+import '../../../core/widgets/app_states.dart';
+import '../../../core/widgets/premium_card.dart';
 import '../../../routes/app_routes.dart';
 import '../providers/payment_provider.dart';
 import '../widgets/empty_payment_widget.dart';
@@ -34,12 +39,16 @@ class PaymentHistoryScreen extends ConsumerWidget {
             arguments: customerId,
           );
         },
-        icon: const Icon(Icons.add_rounded),
+        icon: const Icon(AppIcons.add),
         label: const Text('Add Payment'),
       ),
       body: asyncState.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text(e.toString())),
+        loading: () => const AppLoading(label: 'Loading payments…'),
+        error: (e, _) => AppErrorState(
+          title: 'Could not load payments',
+          message: e.toString(),
+          onRetry: () => ref.read(paymentListProvider.notifier).refresh(),
+        ),
         data: (state) {
           final items = state.payments
               .where((p) => p.customerId == customerId)
@@ -59,24 +68,28 @@ class PaymentHistoryScreen extends ConsumerWidget {
           }
           return RefreshIndicator(
             onRefresh: () => ref.read(paymentListProvider.notifier).refresh(),
-            child: ListView.separated(
-              padding: const EdgeInsets.fromLTRB(8, 8, 8, 100),
+            child: ListView.builder(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.pagePadding,
+                AppSpacing.sm,
+                AppSpacing.pagePadding,
+                100,
+              ),
               itemCount: items.length,
-              separatorBuilder: (_, __) => const Divider(height: 1),
               itemBuilder: (context, index) {
                 final payment = items[index];
-                return Card(
+                return PremiumCard(
+                  margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+                  padding: const EdgeInsets.fromLTRB(4, 8, 4, 12),
+                  onTap: () => Navigator.of(context).pushNamed(
+                    AppRoutes.editPayment,
+                    arguments: payment.id,
+                  ),
                   child: Column(
                     children: [
-                      PaymentHistoryTile(
-                        payment: payment,
-                        onTap: () => Navigator.of(context).pushNamed(
-                          AppRoutes.editPayment,
-                          arguments: payment.id,
-                        ),
-                      ),
+                      PaymentHistoryTile(payment: payment),
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
                         child: Align(
                           alignment: Alignment.centerLeft,
                           child: Text(
@@ -85,8 +98,8 @@ class PaymentHistoryScreen extends ConsumerWidget {
                                 .textTheme
                                 .bodySmall
                                 ?.copyWith(
-                                  color: Theme.of(context).colorScheme.error,
-                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.remaining,
+                                  fontWeight: FontWeight.w700,
                                 ),
                           ),
                         ),

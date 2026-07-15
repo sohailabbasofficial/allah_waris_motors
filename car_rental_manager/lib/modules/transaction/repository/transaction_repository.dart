@@ -41,7 +41,7 @@ class TransactionRepository {
       SELECT t.*, c.name AS customer_name
       FROM transactions t
       INNER JOIN customers c ON c.id = t.customer_id
-      ORDER BY datetime(t.date) DESC, datetime(t.created_at) DESC
+      ORDER BY datetime(t.transaction_date) DESC, datetime(t.created_at) DESC
     ''');
     return rows.map(TransactionModel.fromMap).toList();
   }
@@ -62,6 +62,22 @@ class TransactionRepository {
     return TransactionModel.fromMap(rows.first);
   }
 
+  Future<List<TransactionModel>> getOpenByCustomer(int customerId) async {
+    final db = await _helper.databaseOrNull;
+    if (db == null) return [];
+    final rows = await db.rawQuery(
+      '''
+      SELECT t.*, c.name AS customer_name
+      FROM transactions t
+      INNER JOIN customers c ON c.id = t.customer_id
+      WHERE t.customer_id = ? AND t.remaining_amount > 0
+      ORDER BY datetime(t.transaction_date) ASC, t.id ASC
+      ''',
+      [customerId],
+    );
+    return rows.map(TransactionModel.fromMap).toList();
+  }
+
   Future<TransactionModel> add({
     required int customerId,
     required DateTime date,
@@ -79,7 +95,7 @@ class TransactionRepository {
 
     final id = await db.insert('transactions', {
       'customer_id': customerId,
-      'date': date.toIso8601String(),
+      'transaction_date': date.toIso8601String(),
       'description': description.trim(),
       'total_amount': totalAmount,
       'received_amount': receivedAmount,
@@ -113,7 +129,7 @@ class TransactionRepository {
       'transactions',
       {
         'customer_id': customerId,
-        'date': date.toIso8601String(),
+        'transaction_date': date.toIso8601String(),
         'description': description.trim(),
         'total_amount': totalAmount,
         'received_amount': receivedAmount,
@@ -126,6 +142,7 @@ class TransactionRepository {
     );
     if (updated == 0) throw TransactionNotFoundException(id);
 
+    await _balanceService.syncTransaction(db, id);
     await _balanceService.syncCustomer(db, existing.customerId);
     if (existing.customerId != customerId) {
       await _balanceService.syncCustomer(db, customerId);

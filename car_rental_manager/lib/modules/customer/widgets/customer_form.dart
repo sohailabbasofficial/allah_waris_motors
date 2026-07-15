@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../core/theme/app_icons.dart';
+import '../../../core/theme/app_spacing.dart';
 import '../services/customer_validation_service.dart';
 
 /// Shared add/edit customer form fields.
@@ -34,12 +36,12 @@ class CustomerForm extends StatelessWidget {
             textCapitalization: TextCapitalization.words,
             decoration: const InputDecoration(
               labelText: 'Customer Name *',
-              prefixIcon: Icon(Icons.person_outline),
+              prefixIcon: Icon(AppIcons.customer),
             ),
             validator: CustomerValidationService.validateName,
             textInputAction: TextInputAction.next,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.lg),
           TextFormField(
             controller: phoneController,
             enabled: enabled,
@@ -49,12 +51,12 @@ class CustomerForm extends StatelessWidget {
             ],
             decoration: const InputDecoration(
               labelText: 'Phone Number *',
-              prefixIcon: Icon(Icons.phone_outlined),
+              prefixIcon: Icon(AppIcons.phone),
             ),
             validator: CustomerValidationService.validatePhone,
             textInputAction: TextInputAction.next,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.lg),
           TextFormField(
             controller: cnicController,
             enabled: enabled,
@@ -65,13 +67,13 @@ class CustomerForm extends StatelessWidget {
             ],
             decoration: const InputDecoration(
               labelText: 'CNIC (optional)',
-              prefixIcon: Icon(Icons.badge_outlined),
+              prefixIcon: Icon(AppIcons.security),
               hintText: '13-digit CNIC',
             ),
             validator: CustomerValidationService.validateCnic,
             textInputAction: TextInputAction.next,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.lg),
           TextFormField(
             controller: addressController,
             enabled: enabled,
@@ -80,7 +82,7 @@ class CustomerForm extends StatelessWidget {
             decoration: const InputDecoration(
               labelText: 'Address (optional)',
               alignLabelWithHint: true,
-              prefixIcon: Icon(Icons.location_on_outlined),
+              prefixIcon: Icon(AppIcons.address),
             ),
             textInputAction: TextInputAction.done,
           ),

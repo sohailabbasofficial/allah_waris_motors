@@ -2,6 +2,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/theme/app_icons.dart';
+import '../../../core/theme/app_spacing.dart';
+import '../../../core/widgets/app_states.dart';
+import '../../../core/widgets/premium_card.dart';
 import '../../../routes/app_routes.dart';
 import '../models/outstanding_customer.dart';
 import '../providers/reports_provider.dart';
@@ -56,33 +60,22 @@ class _OutstandingCustomersScreenState
             onPressed: asyncItems.asData == null
                 ? null
                 : () => _export(asyncItems.requireValue),
-            icon: const Icon(Icons.upload_file_outlined),
+            icon: const Icon(AppIcons.export),
           ),
           IconButton(
             tooltip: 'Refresh',
             onPressed: () => ref.invalidate(outstandingCustomersProvider),
-            icon: const Icon(Icons.refresh_rounded),
+            icon: const Icon(AppIcons.refresh),
           ),
         ],
       ),
       body: asyncItems.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text('Failed to load report: $e'),
-                const SizedBox(height: 12),
-                FilledButton(
-                  onPressed: () =>
-                      ref.invalidate(outstandingCustomersProvider),
-                  child: const Text('Retry'),
-                ),
-              ],
-            ),
-          ),
+        loading: () =>
+            const AppLoading(label: 'Loading outstanding customers…'),
+        error: (e, _) => AppErrorState(
+          title: 'Could not load report',
+          message: e.toString(),
+          onRetry: () => ref.invalidate(outstandingCustomersProvider),
         ),
         data: (items) {
           return RefreshIndicator(
@@ -91,17 +84,19 @@ class _OutstandingCustomersScreenState
               await ref.read(outstandingCustomersProvider.future);
             },
             child: ListView(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(AppSpacing.pagePadding),
               children: [
                 if (kIsWeb)
-                  const Padding(
-                    padding: EdgeInsets.only(bottom: 12),
-                    child: Card(
-                      child: ListTile(
-                        leading: Icon(Icons.info_outline),
-                        title: Text(
-                          'SQLite reports require Android, iOS, or desktop.',
-                        ),
+                  PremiumCard(
+                    margin: const EdgeInsets.only(bottom: AppSpacing.md),
+                    child: ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(
+                        AppIcons.info,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                      title: const Text(
+                        'SQLite reports require Android, iOS, or desktop.',
                       ),
                     ),
                   ),
@@ -128,7 +123,7 @@ class _OutstandingCustomersScreenState
                     controller: _searchController,
                     decoration: InputDecoration(
                       labelText: 'Search by name',
-                      prefixIcon: const Icon(Icons.search),
+                      prefixIcon: const Icon(AppIcons.search),
                       suffixIcon: ui.outstandingQuery.isEmpty
                           ? null
                           : IconButton(
@@ -138,7 +133,7 @@ class _OutstandingCustomersScreenState
                                     .read(reportsUiProvider.notifier)
                                     .setOutstandingQuery('');
                               },
-                              icon: const Icon(Icons.clear),
+                              icon: const Icon(Icons.clear_rounded),
                             ),
                     ),
                     onChanged: (value) => ref
@@ -146,18 +141,18 @@ class _OutstandingCustomersScreenState
                         .setOutstandingQuery(value),
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: AppSpacing.md),
                 ReportHeader(
                   title: 'Outstanding Customers',
                   subtitle: '${items.length} customer(s) with balance due',
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: AppSpacing.md),
                 if (items.isEmpty)
                   const EmptyReportWidget(
                     title: 'No outstanding balances',
                     message:
                         'All customers are settled, or no match was found.',
-                    icon: Icons.verified_outlined,
+                    icon: AppIcons.received,
                   )
                 else
                   ...items.map(

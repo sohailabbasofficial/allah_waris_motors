@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_icons.dart';
+import '../../../core/theme/app_spacing.dart';
+import '../../../core/widgets/premium_card.dart';
 import '../models/backup_state.dart';
 
 class GoogleAccountCard extends StatelessWidget {
@@ -18,11 +22,26 @@ class GoogleAccountCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final signedIn = state.isSignedIn &&
         (state.accountEmail?.isNotEmpty ?? false);
+    final accent = signedIn ? AppColors.received : AppColors.brandGray;
 
-    return Card(
+    return PremiumCard(
+      padding: EdgeInsets.zero,
       child: ListTile(
-        leading: CircleAvatar(
-          child: Icon(signedIn ? Icons.cloud_done_outlined : Icons.cloud_off),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.lg,
+          vertical: AppSpacing.sm,
+        ),
+        leading: Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: accent.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Icon(
+            signedIn ? AppIcons.backup : AppIcons.warning,
+            color: accent,
+          ),
         ),
         title: Text(
           signedIn
@@ -30,16 +49,17 @@ class GoogleAccountCard extends StatelessWidget {
                   ? state.accountDisplayName!
                   : 'Google Drive connected')
               : 'Google Drive not connected',
+          style: const TextStyle(fontWeight: FontWeight.w600),
         ),
         subtitle: Text(
           signedIn
               ? (state.accountEmail ?? '')
-              : 'Sign in to back up your database',
+              : 'Owner Google account required for backup & restore',
         ),
         trailing: signedIn
             ? TextButton(
                 onPressed: onDisconnect,
-                child: const Text('Disconnect'),
+                child: const Text('Logout'),
               )
             : FilledButton(
                 onPressed: onConnect,

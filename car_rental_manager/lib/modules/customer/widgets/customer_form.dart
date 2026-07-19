@@ -3,7 +3,9 @@ import 'package:flutter/services.dart';
 
 import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_spacing.dart';
+import '../models/device_contact_suggestion.dart';
 import '../services/customer_validation_service.dart';
+import 'phone_autocomplete_field.dart';
 
 /// Shared add/edit customer form fields.
 class CustomerForm extends StatelessWidget {
@@ -15,6 +17,8 @@ class CustomerForm extends StatelessWidget {
     required this.cnicController,
     required this.addressController,
     this.enabled = true,
+    this.enablePhoneSuggestions = false,
+    this.onPhoneContactSelected,
   });
 
   final GlobalKey<FormState> formKey;
@@ -23,6 +27,10 @@ class CustomerForm extends StatelessWidget {
   final TextEditingController cnicController;
   final TextEditingController addressController;
   final bool enabled;
+
+  /// When true (Add Customer), shows phone autocomplete from mobile contacts.
+  final bool enablePhoneSuggestions;
+  final ValueChanged<DeviceContactSuggestion>? onPhoneContactSelected;
 
   @override
   Widget build(BuildContext context) {
@@ -42,20 +50,27 @@ class CustomerForm extends StatelessWidget {
             textInputAction: TextInputAction.next,
           ),
           const SizedBox(height: AppSpacing.lg),
-          TextFormField(
-            controller: phoneController,
-            enabled: enabled,
-            keyboardType: TextInputType.phone,
-            inputFormatters: [
-              FilteringTextInputFormatter.allow(RegExp(r'[0-9+\-\s]')),
-            ],
-            decoration: const InputDecoration(
-              labelText: 'Phone Number *',
-              prefixIcon: Icon(AppIcons.phone),
+          if (enablePhoneSuggestions)
+            PhoneAutocompleteField(
+              controller: phoneController,
+              enabled: enabled,
+              onContactSelected: onPhoneContactSelected,
+            )
+          else
+            TextFormField(
+              controller: phoneController,
+              enabled: enabled,
+              keyboardType: TextInputType.phone,
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'[0-9+\-\s]')),
+              ],
+              decoration: const InputDecoration(
+                labelText: 'Phone Number *',
+                prefixIcon: Icon(AppIcons.phone),
+              ),
+              validator: CustomerValidationService.validatePhone,
+              textInputAction: TextInputAction.next,
             ),
-            validator: CustomerValidationService.validatePhone,
-            textInputAction: TextInputAction.next,
-          ),
           const SizedBox(height: AppSpacing.lg),
           TextFormField(
             controller: cnicController,

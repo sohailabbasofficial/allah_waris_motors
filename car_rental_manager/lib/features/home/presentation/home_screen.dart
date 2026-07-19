@@ -92,6 +92,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       },
                     ),
                     QuickActionTile(
+                      icon: AppIcons.contacts,
+                      label: 'Contact Sync',
+                      description: 'Find customers on phone',
+                      color: AppColors.cardBlue,
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        Navigator.of(context).pushNamed(AppRoutes.contactSync);
+                      },
+                    ),
+                    QuickActionTile(
                       icon: AppIcons.settings,
                       label: sheetL10n.settings,
                       description: sheetL10n.settingsActionDesc,

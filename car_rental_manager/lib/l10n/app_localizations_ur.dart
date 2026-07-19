@@ -102,7 +102,7 @@ class AppLocalizationsUr extends AppLocalizations {
   String get totalCustomers => 'کل گاہک';
 
   @override
-  String get totalUdhaar => 'کل رقم';
+  String get totalUdhaar => 'کل ادھار';
 
   @override
   String get totalReceived => 'کل وصولی';

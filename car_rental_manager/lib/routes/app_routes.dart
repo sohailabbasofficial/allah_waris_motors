@@ -10,6 +10,7 @@ import '../modules/backup/screens/backup_screen.dart';
 import '../modules/backup/screens/google_sign_in_screen.dart';
 import '../modules/backup/screens/restore_screen.dart';
 import '../modules/customer/screens/add_customer_screen.dart';
+import '../modules/customer/screens/contact_sync_screen.dart';
 import '../modules/customer/screens/customer_detail_screen.dart';
 import '../modules/customer/screens/customer_list_screen.dart';
 import '../modules/customer/screens/edit_customer_screen.dart';
@@ -22,6 +23,7 @@ import '../modules/reports/screens/daily_report_screen.dart';
 import '../modules/reports/screens/monthly_report_screen.dart';
 import '../modules/reports/screens/outstanding_customers_screen.dart';
 import '../modules/reports/screens/reports_home_screen.dart';
+import '../modules/transaction/screens/add_transaction_amount_screen.dart';
 import '../modules/transaction/screens/add_transaction_screen.dart';
 import '../modules/transaction/screens/edit_transaction_screen.dart';
 import '../modules/transaction/screens/transaction_detail_screen.dart';
@@ -41,10 +43,12 @@ class AppRoutes {
   static const String addCustomer = '/add-customer';
   static const String customerDetail = '/customer-detail';
   static const String editCustomer = '/edit-customer';
+  static const String contactSync = '/contact-sync';
   static const String transactions = '/transactions';
   static const String addTransaction = '/add-transaction';
   static const String transactionDetail = '/transaction-detail';
   static const String editTransaction = '/edit-transaction';
+  static const String addTransactionAmount = '/add-transaction-amount';
   static const String payments = '/payments';
   static const String addPayment = '/add-payment';
   static const String editPayment = '/edit-payment';
@@ -67,6 +71,7 @@ class AppRoutes {
         changePin: (_) => const ChangePinScreen(),
         customers: (_) => const CustomerListScreen(),
         addCustomer: (_) => const AddCustomerScreen(),
+        contactSync: (_) => const ContactSyncScreen(),
         transactions: (_) => const TransactionListScreen(),
         addTransaction: (_) => const AddTransactionScreen(),
         payments: (_) => const PaymentListScreen(),
@@ -104,6 +109,13 @@ class AppRoutes {
         return MaterialPageRoute<void>(
           settings: settings,
           builder: (_) => EditTransactionScreen(
+            transactionId: settings.arguments as int,
+          ),
+        );
+      case addTransactionAmount:
+        return MaterialPageRoute<void>(
+          settings: settings,
+          builder: (_) => AddTransactionAmountScreen(
             transactionId: settings.arguments as int,
           ),
         );

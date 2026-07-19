@@ -68,6 +68,8 @@
 	</array>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Authenticate to unlock Allah Waris Motors</string>
+	<key>NSContactsUsageDescription</key>
+	<string>Allah Waris Motors reads contacts only to find phone numbers that already exist as customers in the app.</string>
 </dict>
 </plist>
 

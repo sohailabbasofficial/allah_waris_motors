@@ -46,6 +46,16 @@ class TransactionValidationService {
     return null;
   }
 
+  /// Validates an additional charge added onto an existing transaction.
+  static String? validateAddedAmount(String? value) {
+    final text = value?.trim() ?? '';
+    if (text.isEmpty) return 'Amount is required';
+    final amount = double.tryParse(text);
+    if (amount == null) return 'Enter a valid amount';
+    if (amount <= 0) return 'Amount must be greater than zero';
+    return null;
+  }
+
   static double remaining(double total, double received) {
     final value = total - received;
     return value < 0 ? 0 : value;

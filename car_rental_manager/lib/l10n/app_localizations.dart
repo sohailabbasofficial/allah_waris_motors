@@ -287,7 +287,7 @@ abstract class AppLocalizations {
   /// No description provided for @totalUdhaar.
   ///
   /// In en, this message translates to:
-  /// **'Total Amount'**
+  /// **'Total Udhaar'**
   String get totalUdhaar;
 
   /// No description provided for @totalReceived.

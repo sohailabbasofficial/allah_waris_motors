@@ -102,7 +102,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get totalCustomers => 'Total Customers';
 
   @override
-  String get totalUdhaar => 'Total Amount';
+  String get totalUdhaar => 'Total Udhaar';
 
   @override
   String get totalReceived => 'Total Received';

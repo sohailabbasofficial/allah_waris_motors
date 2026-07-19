@@ -70,6 +70,58 @@ class CustomerLocalDataSource {
     return rows.isNotEmpty;
   }
 
+  /// Fast partial phone lookup for autocomplete (no balance subqueries).
+  ///
+  /// Matches digits contained in [phone], case-insensitive on [name] sort.
+  Future<List<CustomerModel>> searchByPhone(
+    String query, {
+    int limit = 10,
+    int? excludeId,
+  }) async {
+    final digits = query.replaceAll(RegExp(r'[^0-9]'), '');
+    if (digits.length < 2) return [];
+
+    final likeContains = '%$digits%';
+    final likeStarts = '$digits%';
+    final excludeClause = excludeId == null ? '' : 'AND id != ?';
+    final args = <Object?>[
+      likeContains,
+      if (excludeId != null) excludeId,
+      likeStarts,
+      limit,
+    ];
+
+    final rows = await _db.rawQuery(
+      '''
+SELECT
+  id,
+  name,
+  phone,
+  cnic,
+  address,
+  created_at,
+  updated_at,
+  0 AS total_udhaar,
+  0 AS total_received,
+  0 AS remaining_balance
+FROM customers
+WHERE REPLACE(REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', ''), '(', '')
+      LIKE ?
+  $excludeClause
+ORDER BY
+  CASE
+    WHEN REPLACE(REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', ''), '(', '')
+         LIKE ? THEN 0
+    ELSE 1
+  END,
+  name COLLATE NOCASE ASC
+LIMIT ?
+''',
+      args,
+    );
+    return rows.map(CustomerModel.fromMap).toList();
+  }
+
   Future<int> insert(CustomerModel customer) async {
     return _db.insert(
       'customers',

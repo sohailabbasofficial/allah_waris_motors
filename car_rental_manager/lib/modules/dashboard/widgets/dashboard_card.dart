@@ -61,24 +61,25 @@ class DashboardCard extends StatelessWidget {
           child: LayoutBuilder(
             builder: (context, constraints) {
               final h = constraints.maxHeight;
-              final compact = h > 0 && h < 128;
-              final veryCompact = h > 0 && h < 108;
-              final pad = compact ? 12.0 : 16.0;
-              final iconSize = veryCompact ? 36.0 : (compact ? 40.0 : 48.0);
+              final w = constraints.maxWidth;
+              final compact = h > 0 && h < 128 || w < 160;
+              final veryCompact = h > 0 && h < 108 || w < 140;
+              final pad = compact ? 10.0 : 14.0;
+              final iconSize = veryCompact ? 32.0 : (compact ? 38.0 : 46.0);
               final gap = veryCompact ? 2.0 : (compact ? 4.0 : 6.0);
               final titleStyle =
                   Theme.of(context).textTheme.titleSmall?.copyWith(
                         color: isDark ? Colors.white : AppColors.textPrimary,
                         fontWeight: FontWeight.w700,
-                        fontSize: compact ? 12.5 : 13.5,
+                        fontSize: compact ? 12 : 13.5,
                         height: 1.15,
                       );
               final valueStyle =
                   Theme.of(context).textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.w800,
                         letterSpacing: -0.3,
-                        fontSize: veryCompact ? 18 : (compact ? 20 : 22),
-                        height: 1.1,
+                        fontSize: veryCompact ? 17 : (compact ? 19 : 22),
+                        height: 1.05,
                         color: isDark ? Colors.white : AppColors.textPrimary,
                       );
 
@@ -88,65 +89,66 @@ class DashboardCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Expanded(
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        alignment: Alignment.centerLeft,
-                        child: ConstrainedBox(
-                          constraints: BoxConstraints(
-                            maxWidth: constraints.maxWidth - pad * 2 - iconSize - (compact ? 8 : 12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        mainAxisSize: MainAxisSize.max,
+                        children: [
+                          Text(
+                            title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: titleStyle,
                           ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                title,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: titleStyle,
-                              ),
-                              SizedBox(height: gap),
-                              Text(value, style: valueStyle),
-                              if (subtitle != null && !veryCompact) ...[
-                                SizedBox(height: gap),
-                                Text(
-                                  subtitle!,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .bodySmall
-                                      ?.copyWith(
-                                        color: AppColors.textSecondary,
-                                        fontSize: compact ? 11 : 12,
-                                        height: 1.2,
-                                      ),
-                                ),
-                              ],
-                              if (footer != null) ...[
-                                SizedBox(height: compact ? 4 : 8),
-                                Text(
-                                  footer!,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .labelMedium
-                                      ?.copyWith(
-                                        color:
-                                            footerColor ?? AppColors.cardGreen,
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: compact ? 11 : 12,
-                                        height: 1.15,
-                                      ),
-                                ),
-                              ],
-                            ],
+                          SizedBox(height: gap),
+                          // Long amounts shrink to one line (never wrap).
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              value,
+                              maxLines: 1,
+                              softWrap: false,
+                              style: valueStyle,
+                            ),
                           ),
-                        ),
+                          if (subtitle != null && !veryCompact) ...[
+                            SizedBox(height: gap),
+                            Text(
+                              subtitle!,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
+                                  ?.copyWith(
+                                    color: AppColors.textSecondary,
+                                    fontSize: compact ? 10.5 : 12,
+                                    height: 1.2,
+                                  ),
+                            ),
+                          ],
+                          if (footer != null) ...[
+                            SizedBox(height: compact ? 4 : 6),
+                            Text(
+                              footer!,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .labelMedium
+                                  ?.copyWith(
+                                    color: footerColor ?? AppColors.cardGreen,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: compact ? 10.5 : 12,
+                                    height: 1.15,
+                                  ),
+                            ),
+                          ],
+                        ],
                       ),
                     ),
-                    SizedBox(width: compact ? 8 : 12),
+                    SizedBox(width: compact ? 8 : 10),
                     Container(
                       width: iconSize,
                       height: iconSize,

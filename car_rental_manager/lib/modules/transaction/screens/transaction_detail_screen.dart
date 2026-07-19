@@ -11,6 +11,7 @@ import '../../../core/widgets/premium_card.dart';
 import '../../../routes/app_routes.dart';
 import '../providers/transaction_provider.dart';
 import '../widgets/delete_dialog.dart';
+import '../widgets/transaction_amount_history_section.dart';
 import '../widgets/transaction_info_tile.dart';
 
 class TransactionDetailScreen extends ConsumerWidget {
@@ -40,16 +41,33 @@ class TransactionDetailScreen extends ConsumerWidget {
     }
   }
 
+  Future<void> _openAddAmount(BuildContext context) async {
+    await Navigator.of(context).pushNamed(
+      AppRoutes.addTransactionAmount,
+      arguments: transactionId,
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final asyncTx = ref.watch(transactionDetailProvider(transactionId));
+    final historyAsync =
+        ref.watch(transactionAmountHistoryProvider(transactionId));
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Transaction Details'),
         actions: [
           asyncTx.maybeWhen(
-            data: (tx) => IconButton(
+            data: (_) => IconButton(
+              tooltip: 'Add Amount',
+              icon: const Icon(AppIcons.add),
+              onPressed: () => _openAddAmount(context),
+            ),
+            orElse: () => const SizedBox.shrink(),
+          ),
+          asyncTx.maybeWhen(
+            data: (_) => IconButton(
               tooltip: 'Edit',
               icon: const Icon(AppIcons.edit),
               onPressed: () => Navigator.of(context).pushNamed(
@@ -75,7 +93,8 @@ class TransactionDetailScreen extends ConsumerWidget {
         error: (e, _) => AppErrorState(
           title: 'Could not load transaction',
           message: e.toString(),
-          onRetry: () => ref.invalidate(transactionDetailProvider(transactionId)),
+          onRetry: () =>
+              ref.invalidate(transactionDetailProvider(transactionId)),
         ),
         data: (tx) {
           final colorScheme = Theme.of(context).colorScheme;
@@ -141,6 +160,18 @@ class TransactionDetailScreen extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: AppSpacing.lg),
+              historyAsync.when(
+                loading: () => const Padding(
+                  padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
+                  child: Center(child: CircularProgressIndicator()),
+                ),
+                error: (e, _) => Text('Could not load amount history: $e'),
+                data: (additions) => TransactionAmountHistorySection(
+                  transaction: tx,
+                  additions: additions,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.lg),
               PremiumCard(
                 child: Column(
                   children: [
@@ -161,6 +192,16 @@ class TransactionDetailScreen extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: AppSpacing.xxl),
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: FilledButton.icon(
+                  onPressed: () => _openAddAmount(context),
+                  icon: const Icon(AppIcons.add),
+                  label: const Text('Add Amount'),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
               Row(
                 children: [
                   Expanded(

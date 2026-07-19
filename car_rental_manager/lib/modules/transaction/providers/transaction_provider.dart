@@ -4,6 +4,9 @@ import '../../../providers/database_provider.dart';
 import '../../backup/providers/data_change_bus.dart';
 import '../../customer/providers/customer_provider.dart';
 import '../../dashboard/providers/dashboard_provider.dart';
+import '../../../core/constants/app_constants.dart';
+import '../../../providers/shared_preferences_provider.dart';
+import '../models/transaction_amount_addition_model.dart';
 import '../models/transaction_model.dart';
 import '../models/transaction_state.dart';
 import '../repository/transaction_repository.dart';
@@ -102,6 +105,26 @@ class TransactionListNotifier extends AsyncNotifier<TransactionState> {
     await _reloadRelated();
   }
 
+  /// Adds an amount onto an existing transaction (keeps history).
+  Future<TransactionAmountAdditionModel> addAmount({
+    required int transactionId,
+    required double amount,
+    String? notes,
+  }) async {
+    final prefs = ref.read(sharedPreferencesProvider);
+    final addedBy = prefs.getString(AppConstants.keyGoogleAccountDisplayName) ??
+        prefs.getString(AppConstants.keyGoogleAccountEmail);
+
+    final created = await ref.read(transactionRepositoryProvider).addAmount(
+          transactionId: transactionId,
+          amount: amount,
+          notes: notes,
+          addedBy: addedBy,
+        );
+    await _reloadRelated();
+    return created;
+  }
+
   Future<void> _reloadRelated() async {
     await refresh();
     await ref.read(customerListProvider.notifier).refresh();
@@ -114,6 +137,14 @@ final transactionDetailProvider =
     FutureProvider.autoDispose.family<TransactionModel, int>((ref, id) async {
   ref.watch(transactionListProvider);
   return ref.watch(transactionRepositoryProvider).getById(id);
+});
+
+final transactionAmountHistoryProvider = FutureProvider.autoDispose
+    .family<List<TransactionAmountAdditionModel>, int>((ref, transactionId) async {
+  ref.watch(transactionListProvider);
+  return ref
+      .watch(transactionRepositoryProvider)
+      .getAmountAdditions(transactionId);
 });
 
 final openTransactionsProvider = FutureProvider.autoDispose

@@ -65,8 +65,7 @@ class Responsive {
   int statsCrossAxisCount() {
     if (width >= 1100) return 5;
     if (width >= 820) return 3;
-    if (width >= 520) return 2;
-    if (width >= 380) return 2;
+    if (width >= 360) return 2;
     return 1;
   }
 
@@ -86,11 +85,13 @@ class Responsive {
   /// Fixed row height for overview cards — more reliable than aspect ratio alone.
   double statsMainAxisExtent() {
     final cols = statsCrossAxisCount();
-    if (cols == 1) return 124;
+    if (cols == 1) return 118;
     if (cols == 2) {
-      if (width < 400) return 138;
-      return 142;
+      if (width < 360) return 126;
+      if (width < 400) return 132;
+      return 136;
     }
+    if (cols >= 3) return 122;
     return 128;
   }
 

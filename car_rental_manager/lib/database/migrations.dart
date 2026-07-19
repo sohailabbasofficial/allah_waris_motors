@@ -3,20 +3,20 @@ import 'package:sqflite/sqflite.dart';
 import 'tables/customers_table.dart';
 import 'tables/payments_table.dart';
 import 'tables/settings_table.dart';
+import 'tables/transaction_amount_additions_table.dart';
 import 'tables/transactions_table.dart';
 
 /// Versioned schema migrations for Allah Waris Motors.
 ///
-/// Current version: 6 — clean relational schema:
-/// customers ← transactions ← payments, plus settings.
+/// Current version: 7 — customers ← transactions ← payments / amount_additions.
 class DatabaseMigrations {
   DatabaseMigrations._();
 
-  static const int latestVersion = 6;
+  static const int latestVersion = 7;
 
   static Future<void> onCreate(Database db, int version) async {
     await db.execute('PRAGMA foreign_keys = ON');
-    await _createV6Schema(db);
+    await _createLatestSchema(db);
     await _seedDefaultSettings(db);
   }
 
@@ -42,6 +42,9 @@ class DatabaseMigrations {
     if (oldVersion < 6) {
       await _migrateToV6(db);
     }
+    if (oldVersion < 7) {
+      await _migrateToV7(db);
+    }
   }
 
   static Future<void> onDowngrade(
@@ -52,26 +55,36 @@ class DatabaseMigrations {
     // Safe downgrade: rebuild empty target schema.
     // Callers should warn that data may be lost on downgrade.
     await db.execute('PRAGMA foreign_keys = OFF');
+    await db.execute('DROP TABLE IF EXISTS transaction_amount_additions');
     await db.execute('DROP TABLE IF EXISTS payments');
     await db.execute('DROP TABLE IF EXISTS transactions');
     await db.execute('DROP TABLE IF EXISTS customers');
     await db.execute('DROP TABLE IF EXISTS settings');
     await db.execute('PRAGMA foreign_keys = ON');
-    await _createV6Schema(db);
+    await _createLatestSchema(db);
     await _seedDefaultSettings(db);
   }
 
-  static Future<void> _createV6Schema(Database db) async {
+  static Future<void> _createLatestSchema(Database db) async {
     await db.execute(CustomersTable.createSql);
     await db.execute(TransactionsTable.createSql);
     await db.execute(PaymentsTable.createSql);
+    await db.execute(TransactionAmountAdditionsTable.createSql);
     await db.execute(SettingsTable.createSql);
     for (final sql in [
       ...CustomersTable.indexes,
       ...TransactionsTable.indexes,
       ...PaymentsTable.indexes,
+      ...TransactionAmountAdditionsTable.indexes,
       ...SettingsTable.indexes,
     ]) {
+      await db.execute(sql);
+    }
+  }
+
+  static Future<void> _migrateToV7(Database db) async {
+    await db.execute(TransactionAmountAdditionsTable.createSql);
+    for (final sql in TransactionAmountAdditionsTable.indexes) {
       await db.execute(sql);
     }
   }

@@ -4,7 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_spacing.dart';
+import '../../../core/utils/phone_normalizer.dart';
 import '../../../core/widgets/premium_card.dart';
+import '../models/device_contact_suggestion.dart';
 import '../providers/customer_provider.dart';
 import '../repository/customer_repository.dart';
 import '../widgets/customer_form.dart';
@@ -32,6 +34,20 @@ class _AddCustomerScreenState extends ConsumerState<AddCustomerScreen> {
     _cnicController.dispose();
     _addressController.dispose();
     super.dispose();
+  }
+
+  void _onPhoneContactSelected(DeviceContactSuggestion contact) {
+    setState(() {
+      // Fill name from phone book if empty or still the previous contact name.
+      if (_nameController.text.trim().isEmpty) {
+        _nameController.text = contact.name;
+      } else {
+        // Prefer phone-book name when picking a contact.
+        _nameController.text = contact.name;
+      }
+      final phone = PhoneNormalizer.normalize(contact.phone);
+      _phoneController.text = phone.isNotEmpty ? phone : contact.phone;
+    });
   }
 
   Future<void> _save() async {
@@ -90,6 +106,8 @@ class _AddCustomerScreenState extends ConsumerState<AddCustomerScreen> {
               cnicController: _cnicController,
               addressController: _addressController,
               enabled: !_saving,
+              enablePhoneSuggestions: true,
+              onPhoneContactSelected: _onPhoneContactSelected,
             ),
           ),
           const SizedBox(height: AppSpacing.xxl),

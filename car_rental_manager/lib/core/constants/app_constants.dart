@@ -5,8 +5,8 @@ class AppConstants {
   static const String appName = 'Allah Waris Motors';
   static const String databaseName = 'allah_waris_motors.db';
 
-  /// v6: relational schema (payments → transactions → customers) + settings.
-  static const int databaseVersion = 6;
+  /// v7: transaction amount additions history ledger.
+  static const int databaseVersion = 7;
   static const Duration splashDuration = Duration(seconds: 2);
   static const int pinLength = 4;
   static const int maxPinAttempts = 5;

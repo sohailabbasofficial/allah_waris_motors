@@ -39,4 +39,5 @@ abstract final class AppIcons {
   static const IconData notes = Icons.notes_rounded;
   static const IconData ledger = Icons.menu_book_rounded;
   static const IconData warning = Icons.warning_amber_rounded;
+  static const IconData contacts = Icons.contacts_rounded;
 }

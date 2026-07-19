@@ -74,6 +74,12 @@ class _CustomerListScreenState extends ConsumerState<CustomerListScreen> {
         title: const Text('Customers'),
         actions: [
           IconButton(
+            tooltip: 'Contact Sync',
+            onPressed: () =>
+                Navigator.of(context).pushNamed(AppRoutes.contactSync),
+            icon: const Icon(AppIcons.contacts),
+          ),
+          IconButton(
             tooltip: 'Refresh',
             onPressed: isRefreshing
                 ? null

@@ -48,6 +48,21 @@ class CustomerRepository {
     return customer;
   }
 
+  /// Partial phone search for Add Customer autocomplete.
+  Future<List<CustomerModel>> searchByPhone(
+    String query, {
+    int limit = 10,
+    int? excludeId,
+  }) async {
+    final db = await _helper.databaseOrNull;
+    if (db == null) return [];
+    return CustomerLocalDataSource(db).searchByPhone(
+      query,
+      limit: limit,
+      excludeId: excludeId,
+    );
+  }
+
   Future<CustomerModel> addCustomer({
     required String name,
     required String phone,

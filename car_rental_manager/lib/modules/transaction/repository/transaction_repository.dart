@@ -2,6 +2,7 @@ import 'package:sqflite/sqflite.dart';
 
 import '../../../core/database/database_helper.dart';
 import '../../../core/services/customer_balance_service.dart';
+import '../models/transaction_amount_addition_model.dart';
 import '../models/transaction_model.dart';
 import '../services/transaction_validation_service.dart';
 
@@ -11,6 +12,14 @@ class TransactionNotFoundException implements Exception {
 
   @override
   String toString() => 'Transaction not found: $id';
+}
+
+class InvalidAmountAdditionException implements Exception {
+  InvalidAmountAdditionException(this.message);
+  final String message;
+
+  @override
+  String toString() => message;
 }
 
 class DatabaseUnavailableException implements Exception {
@@ -160,6 +169,77 @@ class TransactionRepository {
     );
     if (deleted == 0) throw TransactionNotFoundException(id);
     await _balanceService.syncCustomer(db, existing.customerId);
+  }
+
+  /// Chronological amount-addition history for a transaction (oldest first).
+  Future<List<TransactionAmountAdditionModel>> getAmountAdditions(
+    int transactionId,
+  ) async {
+    final db = await _helper.databaseOrNull;
+    if (db == null) return [];
+    final rows = await db.query(
+      'transaction_amount_additions',
+      where: 'transaction_id = ?',
+      whereArgs: [transactionId],
+      orderBy: 'datetime(created_at) ASC, id ASC',
+    );
+    return rows.map(TransactionAmountAdditionModel.fromMap).toList();
+  }
+
+  /// Adds [amount] onto an existing transaction total (does not overwrite).
+  ///
+  /// Stores a history row with previous/new totals, then recalculates remaining.
+  Future<TransactionAmountAdditionModel> addAmount({
+    required int transactionId,
+    required double amount,
+    String? notes,
+    String? addedBy,
+  }) async {
+    if (amount <= 0 || amount.isNaN || amount.isInfinite) {
+      throw InvalidAmountAdditionException(
+        'Amount must be a valid number greater than zero',
+      );
+    }
+
+    final db = await _db();
+    final existing = await getById(transactionId);
+    final previousTotal = existing.totalAmount;
+    final newTotal = previousTotal + amount;
+    final now = DateTime.now();
+
+    late final int additionId;
+    await db.transaction((txn) async {
+      additionId = await txn.insert('transaction_amount_additions', {
+        'transaction_id': transactionId,
+        'amount': amount,
+        'previous_total': previousTotal,
+        'new_total': newTotal,
+        'notes': _nullableTrim(notes),
+        'added_by': _nullableTrim(addedBy),
+        'created_at': now.toIso8601String(),
+      });
+
+      await txn.update(
+        'transactions',
+        {
+          'total_amount': newTotal,
+          'updated_at': now.toIso8601String(),
+        },
+        where: 'id = ?',
+        whereArgs: [transactionId],
+      );
+    });
+
+    await _balanceService.syncTransaction(db, transactionId);
+    await _balanceService.syncCustomer(db, existing.customerId);
+
+    final rows = await db.query(
+      'transaction_amount_additions',
+      where: 'id = ?',
+      whereArgs: [additionId],
+      limit: 1,
+    );
+    return TransactionAmountAdditionModel.fromMap(rows.first);
   }
 
   String? _nullableTrim(String? value) {
